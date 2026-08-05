@@ -31,14 +31,20 @@
 
 Most people run k6 from the CLI. **FasterTest** gives your team a secure panel on top of k6:
 
-| Without FasterTest | With FasterTest |
-| --- | --- |
+| Without FasterTest                  | With FasterTest                                 |
+| ----------------------------------- | ----------------------------------------------- |
 | Everyone shares scripts + CLI flags | One UI: pick scenario, VUs, duration, **Start** |
-| Hard to invite non-CLI users | JWT login, roles, invites, audit log |
-| Live output = terminal scrollback | Live metrics over WebSocket |
-| cURL → k6 by hand | **cURL import** (single or chain) |
+| Hard to invite non-CLI users        | JWT login, roles, invites, audit log            |
+| Live output = terminal scrollback   | Live metrics over WebSocket                     |
+| cURL → k6 by hand                   | **cURL import** (single or chain)               |
 
-> **k6 still generates the load on the machine (or container) where the server runs.** Browsers only talk to the UI.
+> **k6 still generates the load on the machine (or container) where the server runs.** Browsers only
+> talk to the UI.
+
+> **Disclaimer:** FasterTest is an independent community project built on top of k6. It is not
+> affiliated with or endorsed by Grafana Labs. k6 and Grafana are trademarks of Grafana Labs. See
+> [THIRD_PARTY_NOTICES.md](./THIRD_PARTY_NOTICES.md) for bundled component licenses (including k6
+> AGPL-3.0).
 
 ---
 
@@ -58,12 +64,12 @@ Most people run k6 from the CLI. **FasterTest** gives your team a secure panel o
 
 ### Prerequisites
 
-| Tool | Version |
-| --- | --- |
+| Tool    | Version                      |
+| ------- | ---------------------------- |
 | Node.js | ≥ 18 (20 LTS — see `.nvmrc`) |
-| npm | ≥ 8 |
-| k6 | ≥ 1.7 (`npm run install:k6`) |
-| Docker | Optional (MySQL) |
+| npm     | ≥ 8                          |
+| k6      | ≥ 1.7 (`npm run install:k6`) |
+| Docker  | Optional (MySQL)             |
 
 ### 1. Clone & install
 
@@ -92,10 +98,10 @@ UI_PORT=3001
 
 **Database is optional.**
 
-| Mode | What to do |
-| --- | --- |
-| **Quick start (no Docker)** | Do **not** set `MYSQL_*`. Users/invites/audit are stored in local `data/*.json`. |
-| **MySQL (recommended for teams)** | Start DB with Docker, then add `MYSQL_*` to `.env` (below). |
+| Mode                              | What to do                                                                       |
+| --------------------------------- | -------------------------------------------------------------------------------- |
+| **Quick start (no Docker)**       | Do **not** set `MYSQL_*`. Users/invites/audit are stored in local `data/*.json`. |
+| **MySQL (recommended for teams)** | Start DB with Docker, then add `MYSQL_*` to `.env` (below).                      |
 
 #### Option A — no database (simplest)
 
@@ -115,6 +121,8 @@ MYSQL_PORT=3307
 MYSQL_USER=loadtest
 MYSQL_PASSWORD=loadtest
 MYSQL_DATABASE=loadtest
+# Compose also requires a root password (no insecure defaults):
+# MYSQL_ROOT_PASSWORD=change-me-root
 ```
 
 ### 3. Seed admin & run
@@ -135,6 +143,14 @@ npm run test:smoke  # k6 smoke (needs k6)
 
 ## Docker
 
+Set secrets in `.env` first (Compose refuses insecure defaults):
+
+```dotenv
+MYSQL_ROOT_PASSWORD=change-me-root
+MYSQL_PASSWORD=change-me-app
+JWT_SECRET=generate-a-long-random-secret
+```
+
 **MySQL only** (best for local app development):
 
 ```bash
@@ -142,12 +158,15 @@ docker compose up -d mysql
 npm run ui
 ```
 
-**Full stack** (app + MySQL):
+**Full stack** (app + MySQL, pinned k6 **v1.8.0** with SHA256 verification):
 
 ```bash
 docker compose --profile full up -d --build
 docker compose --profile full exec app node scripts/seed-admin.js admin 'YourStr0ng!Pass'
 ```
+
+The app container runs as non-root with `dumb-init`, `cap_drop: ALL`, `no-new-privileges`, and a
+read-only root filesystem (writable volumes for `reports`, `logs`, `data`, and `/tmp`).
 
 ---
 
@@ -180,16 +199,16 @@ docs/            API & guides
 
 ## Documentation
 
-| Doc | Description |
-| --- | --- |
-| [UI_PANEL.md](./UI_PANEL.md) | Dashboard guide |
-| [docs/API.md](./docs/API.md) | REST + WebSocket |
-| [docs/BEST_PRACTICES.md](./docs/BEST_PRACTICES.md) | Load-testing practices |
-| [CONTRIBUTING.md](./CONTRIBUTING.md) | How to contribute |
-| [SECURITY.md](./SECURITY.md) | Vulnerability reporting |
-| [CODE_OF_CONDUCT.md](./CODE_OF_CONDUCT.md) | Community standards |
-| [docs/GROWTH.md](./docs/GROWTH.md) | How to publish & grow stars |
-| [CHANGELOG.md](./CHANGELOG.md) | Release notes |
+| Doc                                                | Description                 |
+| -------------------------------------------------- | --------------------------- |
+| [UI_PANEL.md](./UI_PANEL.md)                       | Dashboard guide             |
+| [docs/API.md](./docs/API.md)                       | REST + WebSocket            |
+| [docs/BEST_PRACTICES.md](./docs/BEST_PRACTICES.md) | Load-testing practices      |
+| [CONTRIBUTING.md](./CONTRIBUTING.md)               | How to contribute           |
+| [SECURITY.md](./SECURITY.md)                       | Vulnerability reporting     |
+| [CODE_OF_CONDUCT.md](./CODE_OF_CONDUCT.md)         | Community standards         |
+| [docs/GROWTH.md](./docs/GROWTH.md)                 | How to publish & grow stars |
+| [CHANGELOG.md](./CHANGELOG.md)                     | Release notes               |
 
 ---
 
@@ -223,6 +242,9 @@ See [CONTRIBUTING.md](./CONTRIBUTING.md).
 ## License
 
 ISC — see [LICENSE](./LICENSE).
+
+Third-party components (including the k6 engine used by Docker images) are listed in
+[THIRD_PARTY_NOTICES.md](./THIRD_PARTY_NOTICES.md).
 
 ## Authors
 

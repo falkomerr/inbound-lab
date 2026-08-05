@@ -9,19 +9,19 @@ Last aligned with repo layout: one built-in scenario, UI cURL import, 146 Node t
 
 ## Platform (UI + server)
 
-| Feature                      | Status     | Where                                 |
-| ---------------------------- | ---------- | ------------------------------------- |
-| Web dashboard                | ✅ Shipped | `public/`, `UI_PANEL.md`              |
-| JWT login + RBAC             | ✅ Shipped | `server/routes/api.js`, `docs/API.md` |
+| Feature                              | Status     | Where                                            |
+| ------------------------------------ | ---------- | ------------------------------------------------ |
+| Web dashboard                        | ✅ Shipped | `public/`, `UI_PANEL.md`                         |
+| JWT login + RBAC                     | ✅ Shipped | `server/routes/api.js`, `docs/API.md`            |
 | User invites (optional email domain) | ✅ Shipped | `server/inviteStore.js` + `ALLOWED_EMAIL_DOMAIN` |
-| Password reset links         | ✅ Shipped | `server/resetStore.js`                |
-| Admin audit log (cap 5000)   | ✅ Shipped | `server/auditStore.js`                |
-| Global / per-user ban        | ✅ Shipped | `server/accessControlStore.js`        |
-| Live metrics WebSocket       | ✅ Shipped | `server/index.js` (`?token=`)         |
-| k6 child process control     | ✅ Shipped | `server/testManager.js`               |
-| cURL → k6 script import      | ✅ Shipped | UI + `POST /api/tests/curl`           |
-| Health probe                 | ✅ Shipped | `GET /api/health`                     |
-| VM deploy (systemd/nginx)    | ✅ Shipped | `deploy/`                             |
+| Password reset links                 | ✅ Shipped | `server/resetStore.js`                           |
+| Admin audit log (cap 5000)           | ✅ Shipped | `server/auditStore.js`                           |
+| Global / per-user ban                | ✅ Shipped | `server/accessControlStore.js`                   |
+| Live metrics WebSocket               | ✅ Shipped | `server/index.js` (`?token=`)                    |
+| k6 child process control             | ✅ Shipped | `server/testManager.js`                          |
+| cURL → k6 script import              | ✅ Shipped | UI + `POST /api/tests/curl`                      |
+| Health probe                         | ✅ Shipped | `GET /api/health`                                |
+| VM deploy (systemd/nginx)            | ✅ Shipped | `deploy/`                                        |
 
 ---
 
@@ -29,7 +29,7 @@ Last aligned with repo layout: one built-in scenario, UI cURL import, 146 Node t
 
 | Feature                             | Status         | Notes                                               |
 | ----------------------------------- | -------------- | --------------------------------------------------- |
-| Built-in scenario in git            | ✅ **1 file**  | `tests/scenarios/sample-http-get.js`              |
+| Built-in scenario in git            | ✅ **1 file**  | `tests/scenarios/sample-http-get.js`                |
 | Load profiles (smoke/load/stress/…) | ✅ Same script | Different `npm run test:*` VU/duration              |
 | Extra scenarios                     | ⚠️ Manual / UI | Add `.js` under `tests/scenarios/` or cURL import   |
 | `test:websocket`                    | ❌ Placeholder | Exits until `tests/scenarios/*websocket*.js` exists |

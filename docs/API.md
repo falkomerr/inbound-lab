@@ -498,7 +498,8 @@ Invite and reset links use `APP_BASE_URL` from `.env` (not the request `Host` he
 
 **Valid roles:** `admin`, `tech-lead`, `developer`, `qa`, `pm`
 
-**Email (when provided):** any address by default. If `ALLOWED_EMAIL_DOMAIN` is set, must end with that domain.
+**Email (when provided):** any address by default. If `ALLOWED_EMAIL_DOMAIN` is set, must end with
+that domain.
 
 ---
 

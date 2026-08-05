@@ -31,10 +31,12 @@ export function getPool() {
 }
 
 export async function closePool() {
-  if (pool) {
-    await pool.end();
-    pool = null;
+  const current = pool;
+  if (!current) {
+    return;
   }
+  pool = null;
+  await current.end();
 }
 
 /** Lightweight connectivity check for health probes. */

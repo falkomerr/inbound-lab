@@ -140,6 +140,8 @@ export default [
       'coverage/**',
       '*.min.js',
       'public/assets/**',
+      'public/dist/**',
+      'public/index.bundled.html',
     ],
   },
 

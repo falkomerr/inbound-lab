@@ -241,7 +241,7 @@ export async function updateUser(id, updates) {
     if (dup.length) {
       throw new Error(`Username "${updates.username}" already exists`);
     }
-    username = updates.username;
+    ({ username } = updates);
   }
 
   if (updates.email !== undefined) {
@@ -259,11 +259,11 @@ export async function updateUser(id, updates) {
     if (!VALID_ROLES.includes(updates.role)) {
       throw new Error(`Invalid role "${updates.role}". Must be one of: ${VALID_ROLES.join(', ')}`);
     }
-    role = updates.role;
+    ({ role } = updates);
   }
 
   if (updates.permissions !== undefined) {
-    permissions = updates.permissions;
+    ({ permissions } = updates);
   }
   if (updates.limits !== undefined) {
     limits = { ...DEFAULT_LIMITS, ...updates.limits };

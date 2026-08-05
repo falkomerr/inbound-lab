@@ -55,6 +55,7 @@ async function main() {
 
   let userCount = 0;
   for (const u of users) {
+    // eslint-disable-next-line no-await-in-loop -- sequential migration keeps error context clear
     await pool.execute(
       `INSERT INTO users
         (id, username, email, password_hash, role, token_version, banned, permissions_json, limits_json, created_at)
@@ -85,6 +86,7 @@ async function main() {
 
   let inviteCount = 0;
   for (const i of invites) {
+    // eslint-disable-next-line no-await-in-loop -- sequential migration keeps error context clear
     await pool.execute(
       `INSERT INTO invites
         (token, email, role, permissions_json, limits_json, created_by, created_at, expires_at, used, used_at)
@@ -108,6 +110,7 @@ async function main() {
 
   let resetCount = 0;
   for (const r of resets) {
+    // eslint-disable-next-line no-await-in-loop -- sequential migration keeps error context clear
     await pool.execute(
       `INSERT INTO password_resets (token, user_id, username, created_at, expires_at)
        VALUES (?, ?, ?, ?, ?)
@@ -120,6 +123,7 @@ async function main() {
   let auditCount = 0;
   for (const e of audit) {
     const { id, timestamp, type, username, ...rest } = e;
+    // eslint-disable-next-line no-await-in-loop -- sequential migration keeps error context clear
     await pool.execute(
       `INSERT INTO audit_log (id, created_at, type, username, payload)
        VALUES (?, ?, ?, ?, CAST(? AS JSON))

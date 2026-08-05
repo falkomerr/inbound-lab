@@ -34,9 +34,10 @@ Releases drive discovery more than silent commits.
 
 ## 3. Social proof in the first 48 hours
 
-Stars come from people *seeing* the repo:
+Stars come from people _seeing_ the repo:
 
-1. Post a short demo (30–60s screen recording) on X / LinkedIn / Reddit (`r/devops`, `r/selfhosted`, `r/qualityassurance`)
+1. Post a short demo (30–60s screen recording) on X / LinkedIn / Reddit (`r/devops`, `r/selfhosted`,
+   `r/qualityassurance`)
 2. Share in k6 / Grafana community Slack/Discord if allowed
 3. Answer 2–3 related Stack Overflow / Reddit questions and link the repo when relevant (don’t spam)
 

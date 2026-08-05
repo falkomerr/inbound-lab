@@ -24,6 +24,7 @@ describe('Auth flows integration', () => {
     await ctx.createUser(username, 'ValidPass123!', 'developer');
 
     for (let i = 0; i < 5; i++) {
+      // eslint-disable-next-line no-await-in-loop -- sequential lockout attempts
       const res = await fetch(`${ctx.baseUrl}/auth/login`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },

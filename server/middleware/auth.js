@@ -77,6 +77,7 @@ export async function requireAuth(req, res, next) {
     }
 
     // Use fresh data from store so limits/role/permissions are always current
+    // eslint-disable-next-line require-atomic-updates -- req is request-scoped
     req.user = freshUser;
     next();
   } catch (err) {

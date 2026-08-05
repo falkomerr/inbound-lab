@@ -66,6 +66,7 @@ const STATEMENTS = [
 export async function migrate() {
   const pool = getPool();
   for (const sql of STATEMENTS) {
+    // eslint-disable-next-line no-await-in-loop -- sequential DDL is intentional
     await pool.query(sql);
   }
   // Ensure singleton access-control row exists

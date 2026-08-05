@@ -26,7 +26,7 @@ For current setup and commands see [README.md](../README.md). For a feature chec
 
 | Gap                     | Notes                                                                           |
 | ----------------------- | ------------------------------------------------------------------------------- |
-| **Scenario library**    | Only `sample-http-get.js` in git; more via UI import or new files             |
+| **Scenario library**    | Only `sample-http-get.js` in git; more via UI import or new files               |
 | **Protocol scenarios**  | WebSocket/gRPC/browser **helpers** exist; no runnable `test:websocket` etc. yet |
 | **Distributed load**    | Single-machine k6; `k6 cloud` script optional, not wired to UI                  |
 | **Observability stack** | InfluxDB/Grafana helpers + npm scripts; no bundled Docker Compose               |

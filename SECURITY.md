@@ -12,7 +12,8 @@
 
 Please report privately so we can fix and disclose responsibly:
 
-1. Prefer [GitHub Security Advisories](https://github.com/alirezaedalat/fastertest/security/advisories/new).
+1. Prefer
+   [GitHub Security Advisories](https://github.com/alirezaedalat/fastertest/security/advisories/new).
 2. Or email the maintainers listed in the repository profile / `package.json` `author` field.
 
 Include:

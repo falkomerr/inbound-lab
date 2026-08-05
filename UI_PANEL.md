@@ -80,10 +80,11 @@ WebSocket upgrades require `?token=<jwt>` on the connection URL.
 
 The UI is a **Vue 3** dashboard (`public/app.js` + modules, `public/styles.css`).
 
-| Mode | Assets |
-| ---- | ------ |
-| **Development** (`npm run ui`) | Vue/Chart UMD from `/vendor/*` + classic scripts |
-| **Production** | `npm run build:ui` → `public/dist/dashboard.js` when `NODE_ENV=production` |
+| Mode                           | Assets                                                                     |
+| ------------------------------ | -------------------------------------------------------------------------- |
+| **Development** (`npm run ui`) | Vue/Chart UMD from `/vendor/*` + classic scripts                           |
+| **Production**                 | `npm run build:ui` → `public/dist/dashboard.js` when `NODE_ENV=production` |
+
 with:
 
 - **Test Scenarios** tab — built-in and imported k6 scenarios (team-filtered by role)
@@ -257,14 +258,14 @@ Example start body:
 
 ## Operations (production VMs)
 
-| Topic        | Guidance                                                                     |
-| ------------ | ---------------------------------------------------------------------------- |
-| Health       | `GET /api/health` — no JWT; use for nginx, systemd, and uptime checks        |
+| Topic        | Guidance                                                                          |
+| ------------ | --------------------------------------------------------------------------------- |
+| Health       | `GET /api/health` — no JWT; use for nginx, systemd, and uptime checks             |
 | Node deps    | `npm install` + `npm run build:ui` on production VMs (see `deploy/install-vm.sh`) |
-| Reports disk | `REPORT_MAX_AGE_DAYS`, `REPORT_MAX_TOTAL_MB`, `REPORT_MAX_FILE_MB` in `.env` |
-| Audit log    | `data/audit.json` auto-trimmed to 5000 entries                               |
-| Log rotation | Optional: `deploy/logrotate.conf.example` → `/etc/logrotate.d/`              |
-| Logo asset   | `public/assets/logo.jpg` is in git — include when rsyncing to VMs        |
+| Reports disk | `REPORT_MAX_AGE_DAYS`, `REPORT_MAX_TOTAL_MB`, `REPORT_MAX_FILE_MB` in `.env`      |
+| Audit log    | `data/audit.json` auto-trimmed to 5000 entries                                    |
+| Log rotation | Optional: `deploy/logrotate.conf.example` → `/etc/logrotate.d/`                   |
+| Logo asset   | `public/assets/logo.jpg` is in git — include when rsyncing to VMs                 |
 
 ---
 
@@ -287,7 +288,7 @@ See [README.md § Troubleshooting](./README.md#troubleshooting) for more detail.
 ## Project layout (UI-related)
 
 ```
-load-test-platform/
+fastertest/
 ├── public/           # Vue dashboard, login, invite, reset pages
 │   ├── modules/      # apiClient.js, icon.js (loaded before app.js)
 │   └── curlParser.js
@@ -298,7 +299,7 @@ load-test-platform/
 │       ├── api.js
 │       └── helpers/routeHelpers.js
 ├── tests/scenarios/  # k6 scripts (built-in + cURL imports)
-├── data/             # users, history, audit (gitignored)
+├── data/             # users, history, audit (gitignored JSON fallback)
 └── reports/          # k6 output (gitignored)
 ```
 

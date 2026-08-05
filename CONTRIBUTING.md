@@ -1,7 +1,7 @@
 # Contributing to FasterTest
 
-Thank you for your interest in contributing to the FasterTest! This document provides
-guidelines and instructions for contributing.
+Thank you for your interest in contributing to the FasterTest! This document provides guidelines and
+instructions for contributing.
 
 ## 📋 Table of Contents
 
@@ -21,9 +21,8 @@ guidelines and instructions for contributing.
 
 Please read and follow our [CODE_OF_CONDUCT.md](./CODE_OF_CONDUCT.md).
 
-We are committed to a welcoming, respectful community. Unacceptable behavior
-(harassment, insults, publishing private information, etc.) may result in
-moderation actions by maintainers.
+We are committed to a welcoming, respectful community. Unacceptable behavior (harassment, insults,
+publishing private information, etc.) may result in moderation actions by maintainers.
 
 ---
 

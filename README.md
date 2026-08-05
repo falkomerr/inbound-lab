@@ -5,7 +5,7 @@
 </p>
 
 <p align="center">
-  <b>Open-source k6 load &amp; stress testing — with a real web UI</b><br />
+  <b>Open-source load and stress testing platform powered by the k6 engine</b><br />
   Start tests from the browser · live metrics · cURL import · users &amp; RBAC · MySQL
 </p>
 
@@ -16,6 +16,13 @@
   <a href="https://k6.io"><img src="https://img.shields.io/badge/engine-k6-7D64FF" alt="k6" /></a>
   <a href="https://github.com/alirezaedalat/fastertest/stargazers"><img src="https://img.shields.io/github/stars/alirezaedalat/fastertest?style=social" alt="GitHub stars" /></a>
 </p>
+
+> **Independence notice:** FasterTest is an independent open-source project that uses the k6
+> load-testing engine. Grafana, k6, and their associated marks are trademarks of Grafana Labs.
+> FasterTest is not affiliated with, endorsed by, or sponsored by Grafana Labs. FasterTest is not an
+> official Grafana or k6 product. FasterTest application source remains under the
+> [ISC License](./LICENSE); k6 remains under its own license (AGPL-3.0). Bundled third-party
+> components retain their own licenses — see [THIRD_PARTY_NOTICES.md](./THIRD_PARTY_NOTICES.md).
 
 <p align="center">
   <a href="#quick-start"><b>Quick Start</b></a> ·
@@ -40,11 +47,6 @@ Most people run k6 from the CLI. **FasterTest** gives your team a secure panel o
 
 > **k6 still generates the load on the machine (or container) where the server runs.** Browsers only
 > talk to the UI.
-
-> **Disclaimer:** FasterTest is an independent community project built on top of k6. It is not
-> affiliated with or endorsed by Grafana Labs. k6 and Grafana are trademarks of Grafana Labs. See
-> [THIRD_PARTY_NOTICES.md](./THIRD_PARTY_NOTICES.md) for bundled component licenses (including k6
-> AGPL-3.0).
 
 ---
 
@@ -199,16 +201,20 @@ docs/            API & guides
 
 ## Documentation
 
-| Doc                                                | Description                 |
-| -------------------------------------------------- | --------------------------- |
-| [UI_PANEL.md](./UI_PANEL.md)                       | Dashboard guide             |
-| [docs/API.md](./docs/API.md)                       | REST + WebSocket            |
-| [docs/BEST_PRACTICES.md](./docs/BEST_PRACTICES.md) | Load-testing practices      |
-| [CONTRIBUTING.md](./CONTRIBUTING.md)               | How to contribute           |
-| [SECURITY.md](./SECURITY.md)                       | Vulnerability reporting     |
-| [CODE_OF_CONDUCT.md](./CODE_OF_CONDUCT.md)         | Community standards         |
-| [docs/GROWTH.md](./docs/GROWTH.md)                 | How to publish & grow stars |
-| [CHANGELOG.md](./CHANGELOG.md)                     | Release notes               |
+| Doc                                                        | Description                         |
+| ---------------------------------------------------------- | ----------------------------------- |
+| [UI_PANEL.md](./UI_PANEL.md)                               | Dashboard guide                     |
+| [docs/API.md](./docs/API.md)                               | REST + WebSocket                    |
+| [docs/BEST_PRACTICES.md](./docs/BEST_PRACTICES.md)         | Load-testing practices              |
+| [docs/LEGAL.md](./docs/LEGAL.md)                           | Licensing / k6 redistribution notes |
+| [docs/TRADEMARKS.md](./docs/TRADEMARKS.md)                 | Trademark & branding checklist      |
+| [docs/RELEASE_COMPLIANCE.md](./docs/RELEASE_COMPLIANCE.md) | Pre-release compliance checklist    |
+| [THIRD_PARTY_NOTICES.md](./THIRD_PARTY_NOTICES.md)         | Third-party / k6 AGPL notices       |
+| [CONTRIBUTING.md](./CONTRIBUTING.md)                       | How to contribute                   |
+| [SECURITY.md](./SECURITY.md)                               | Vulnerability reporting             |
+| [CODE_OF_CONDUCT.md](./CODE_OF_CONDUCT.md)                 | Community standards                 |
+| [docs/GROWTH.md](./docs/GROWTH.md)                         | How to publish & grow stars         |
+| [CHANGELOG.md](./CHANGELOG.md)                             | Release notes                       |
 
 ---
 
@@ -244,7 +250,9 @@ See [CONTRIBUTING.md](./CONTRIBUTING.md).
 ISC — see [LICENSE](./LICENSE).
 
 Third-party components (including the k6 engine used by Docker images) are listed in
-[THIRD_PARTY_NOTICES.md](./THIRD_PARTY_NOTICES.md).
+[THIRD_PARTY_NOTICES.md](./THIRD_PARTY_NOTICES.md). Docker images that bundle k6 include both the
+FasterTest ISC text and the full k6 AGPL-3.0 text under `/usr/share/licenses/`. See
+[docs/LEGAL.md](./docs/LEGAL.md).
 
 ## Authors
 

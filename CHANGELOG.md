@@ -9,6 +9,11 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Added
 
+- Full k6 AGPL-3.0 text (`licenses/k6/AGPL-3.0.txt`) and FasterTest ISC copy under `licenses/`
+- Docker image ships licenses at `/usr/share/licenses/{fastertest,k6}/` plus notices
+- OCI labels: `ISC AND AGPL-3.0`, `io.fastertest.k6.license`, `io.fastertest.k6.source`
+- Compliance docs: `docs/LEGAL.md`, `docs/TRADEMARKS.md`, `docs/RELEASE_COMPLIANCE.md`
+- Automated license compliance tests + optional `scripts/check-image-licenses.sh`
 - `THIRD_PARTY_NOTICES.md` and Grafana/k6 trademark disclaimer in README
 - Pinned k6 **v1.8.0** in Docker (SHA256-verified GitHub release binary, amd64/arm64)
 - OCI image labels, `dumb-init`, graceful SIGTERM/SIGINT shutdown
@@ -18,6 +23,8 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Changed
 
+- README independence notice clarified (not an official Grafana/k6 product)
+- `org.opencontainers.image.licenses` no longer ISC-only when k6 is bundled
 - Docker no longer installs unpinned `apt` k6 from `dl.k6.io` (that path failed on some arches)
 
 ### Added (earlier)

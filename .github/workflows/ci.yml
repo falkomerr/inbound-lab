@@ -41,6 +41,9 @@ jobs:
       - name: Lint
         run: npm run lint
 
+      - name: License compliance checks
+        run: node --test tests/unit/complianceLicenses.test.js
+
       - name: Unit & integration tests
         run: npm test
 

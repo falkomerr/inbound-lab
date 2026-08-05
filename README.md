@@ -81,22 +81,40 @@ cp env.example .env
 node -e "console.log(require('crypto').randomBytes(48).toString('hex'))"
 ```
 
-Put the printed value into `.env` as `JWT_SECRET`, then set:
+Put the printed value into `.env` as `JWT_SECRET`, then set at least:
 
 ```dotenv
 JWT_SECRET=<paste-here>
 APP_BASE_URL=http://localhost:3001
 ALLOWED_ORIGINS=http://localhost:3001
 UI_PORT=3001
+```
+
+**Database is optional.**
+
+| Mode | What to do |
+| --- | --- |
+| **Quick start (no Docker)** | Do **not** set `MYSQL_*`. Users/invites/audit are stored in local `data/*.json`. |
+| **MySQL (recommended for teams)** | Start DB with Docker, then add `MYSQL_*` to `.env` (below). |
+
+#### Option A — no database (simplest)
+
+Skip Docker. Go straight to step 3.
+
+#### Option B — MySQL via Docker
+
+```bash
+docker compose up -d mysql
+```
+
+Add to `.env`:
+
+```dotenv
 MYSQL_HOST=127.0.0.1
 MYSQL_PORT=3307
 MYSQL_USER=loadtest
 MYSQL_PASSWORD=loadtest
 MYSQL_DATABASE=loadtest
-```
-
-```bash
-docker compose up -d mysql
 ```
 
 ### 3. Seed admin & run

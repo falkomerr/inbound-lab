@@ -1,0 +1,810 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Reset Password — Load Test Platform</title>
+    <link rel="icon" type="image/svg+xml" href="assets/logo.svg" />
+    <style>
+      *,
+      *::before,
+      *::after {
+        box-sizing: border-box;
+        margin: 0;
+        padding: 0;
+      }
+
+      :root {
+        --primary: #4f6ef7;
+        --primary-dk: #3a57e8;
+        --accent: #7c3aed;
+        --text: #0f172a;
+        --text-muted: #64748b;
+        --border: #e2e8f0;
+        --error: #dc2626;
+        --success: #059669;
+      }
+
+      html,
+      body {
+        height: 100%;
+        font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Inter', sans-serif;
+        background: #f8fafc;
+        color: var(--text);
+      }
+
+      /* ── Two-column layout ───────────────────────────────── */
+      .page {
+        display: grid;
+        grid-template-columns: 1fr 1fr;
+        min-height: 100vh;
+      }
+
+      /* ── Left brand panel ────────────────────────────────── */
+      .brand-panel {
+        position: relative;
+        background: linear-gradient(155deg, #0f172a 0%, #1e1b4b 45%, #312e81 100%);
+        display: flex;
+        flex-direction: column;
+        justify-content: space-between;
+        padding: 48px 52px;
+        overflow: hidden;
+      }
+
+      .brand-panel::before {
+        content: '';
+        position: absolute;
+        top: -80px;
+        right: -80px;
+        width: 380px;
+        height: 380px;
+        border-radius: 50%;
+        background: radial-gradient(circle, rgba(99, 102, 241, 0.35) 0%, transparent 70%);
+        pointer-events: none;
+      }
+      .brand-panel::after {
+        content: '';
+        position: absolute;
+        bottom: -60px;
+        left: -60px;
+        width: 320px;
+        height: 320px;
+        border-radius: 50%;
+        background: radial-gradient(circle, rgba(124, 58, 237, 0.3) 0%, transparent 70%);
+        pointer-events: none;
+      }
+
+      .brand-dots {
+        position: absolute;
+        inset: 0;
+        background-image: radial-gradient(circle, rgba(255, 255, 255, 0.08) 1px, transparent 1px);
+        background-size: 32px 32px;
+        pointer-events: none;
+      }
+
+      .brand-top {
+        position: relative;
+        z-index: 1;
+      }
+
+      .brand-logo {
+        display: flex;
+        align-items: center;
+        gap: 14px;
+      }
+
+      .brand-logo-img {
+        width: 52px;
+        height: 52px;
+        border-radius: 14px;
+        object-fit: cover;
+        border: 2px solid rgba(255, 255, 255, 0.18);
+        box-shadow: 0 4px 20px rgba(0, 0, 0, 0.3);
+      }
+
+      .brand-name {
+        font-size: 1.25rem;
+        font-weight: 800;
+        color: #fff;
+        letter-spacing: -0.01em;
+      }
+      .brand-sub {
+        font-size: 0.78rem;
+        color: rgba(255, 255, 255, 0.5);
+        font-weight: 500;
+        letter-spacing: 0.04em;
+        text-transform: uppercase;
+      }
+
+      .brand-middle {
+        position: relative;
+        z-index: 1;
+        flex: 1;
+        display: flex;
+        align-items: center;
+      }
+
+      .brand-hero {
+        width: 100%;
+      }
+
+      .brand-headline {
+        font-size: 2.4rem;
+        font-weight: 800;
+        color: #fff;
+        line-height: 1.18;
+        letter-spacing: -0.03em;
+        margin-bottom: 18px;
+      }
+      .brand-headline span {
+        background: linear-gradient(90deg, #818cf8, #a78bfa);
+        -webkit-background-clip: text;
+        -webkit-text-fill-color: transparent;
+        background-clip: text;
+      }
+
+      .brand-desc {
+        font-size: 0.95rem;
+        color: rgba(255, 255, 255, 0.55);
+        line-height: 1.65;
+        max-width: 360px;
+      }
+
+      /* Security steps card */
+      .brand-steps {
+        margin-top: 36px;
+        display: flex;
+        flex-direction: column;
+        gap: 12px;
+      }
+
+      .brand-step {
+        display: flex;
+        align-items: flex-start;
+        gap: 14px;
+        background: rgba(255, 255, 255, 0.06);
+        border: 1px solid rgba(255, 255, 255, 0.1);
+        border-radius: 12px;
+        padding: 14px 16px;
+      }
+
+      .step-num {
+        width: 26px;
+        height: 26px;
+        border-radius: 50%;
+        background: linear-gradient(135deg, #6366f1, #8b5cf6);
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        font-size: 0.72rem;
+        font-weight: 800;
+        color: #fff;
+        flex-shrink: 0;
+      }
+
+      .step-text strong {
+        display: block;
+        font-size: 0.82rem;
+        font-weight: 700;
+        color: rgba(255, 255, 255, 0.9);
+        margin-bottom: 2px;
+      }
+      .step-text span {
+        font-size: 0.75rem;
+        color: rgba(255, 255, 255, 0.45);
+      }
+
+      .brand-bottom {
+        position: relative;
+        z-index: 1;
+        font-size: 0.75rem;
+        color: rgba(255, 255, 255, 0.3);
+      }
+
+      /* ── Right form panel ────────────────────────────────── */
+      .form-panel {
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        padding: 48px 32px;
+        background: #fff;
+      }
+
+      .form-inner {
+        width: 100%;
+        max-width: 380px;
+      }
+
+      .form-eyebrow {
+        display: inline-flex;
+        align-items: center;
+        gap: 7px;
+        font-size: 0.75rem;
+        font-weight: 700;
+        color: var(--primary);
+        text-transform: uppercase;
+        letter-spacing: 0.08em;
+        margin-bottom: 12px;
+      }
+      .form-eyebrow-dot {
+        width: 6px;
+        height: 6px;
+        border-radius: 50%;
+        background: var(--primary);
+      }
+
+      h1 {
+        font-size: 1.9rem;
+        font-weight: 800;
+        color: var(--text);
+        letter-spacing: -0.03em;
+        line-height: 1.15;
+        margin-bottom: 8px;
+      }
+
+      .form-subtitle {
+        font-size: 0.88rem;
+        color: var(--text-muted);
+        line-height: 1.5;
+        margin-bottom: 28px;
+      }
+
+      /* User chip */
+      .user-chip {
+        display: inline-flex;
+        align-items: center;
+        gap: 8px;
+        background: rgba(79, 110, 247, 0.07);
+        border: 1px solid rgba(79, 110, 247, 0.2);
+        border-radius: 24px;
+        padding: 6px 14px 6px 8px;
+        margin-bottom: 28px;
+      }
+      .user-chip-avatar {
+        width: 28px;
+        height: 28px;
+        border-radius: 50%;
+        background: linear-gradient(135deg, #6366f1, #8b5cf6);
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        font-size: 0.75rem;
+        font-weight: 800;
+        color: #fff;
+        flex-shrink: 0;
+      }
+      .user-chip-name {
+        font-size: 0.85rem;
+        font-weight: 700;
+        color: var(--primary);
+      }
+      .user-chip-label {
+        font-size: 0.72rem;
+        color: var(--text-muted);
+      }
+
+      /* Fields */
+      .field {
+        margin-bottom: 20px;
+      }
+
+      .field-label {
+        display: flex;
+        align-items: center;
+        gap: 6px;
+        font-size: 0.78rem;
+        font-weight: 700;
+        color: var(--text);
+        letter-spacing: 0.01em;
+        margin-bottom: 8px;
+      }
+
+      .input-wrap {
+        position: relative;
+      }
+
+      .input-icon {
+        position: absolute;
+        left: 14px;
+        top: 50%;
+        transform: translateY(-50%);
+        color: #94a3b8;
+        pointer-events: none;
+      }
+
+      .input-wrap input {
+        width: 100%;
+        padding: 13px 44px;
+        border: 1.5px solid var(--border);
+        border-radius: 10px;
+        font-size: 0.95rem;
+        color: var(--text);
+        background: #fff;
+        outline: none;
+        transition:
+          border-color 0.15s,
+          box-shadow 0.15s;
+      }
+      .input-wrap input:focus {
+        border-color: var(--primary);
+        box-shadow: 0 0 0 3px rgba(79, 110, 247, 0.12);
+      }
+      .input-wrap input::placeholder {
+        color: #94a3b8;
+      }
+
+      .pw-toggle {
+        position: absolute;
+        right: 13px;
+        top: 50%;
+        transform: translateY(-50%);
+        background: none;
+        border: none;
+        cursor: pointer;
+        color: #94a3b8;
+        padding: 4px;
+        display: flex;
+        border-radius: 6px;
+        transition:
+          color 0.12s,
+          background 0.12s;
+      }
+      .pw-toggle:hover {
+        color: var(--primary);
+        background: rgba(79, 110, 247, 0.07);
+      }
+
+      .field-hint {
+        font-size: 0.73rem;
+        color: var(--text-muted);
+        margin-top: 6px;
+        padding-left: 2px;
+      }
+
+      /* Submit button */
+      .btn-submit {
+        width: 100%;
+        padding: 14px;
+        background: linear-gradient(135deg, #4f6ef7, #6366f1);
+        color: #fff;
+        border: none;
+        border-radius: 10px;
+        font-size: 0.95rem;
+        font-weight: 700;
+        cursor: pointer;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        gap: 8px;
+        margin-top: 8px;
+        box-shadow: 0 4px 18px rgba(79, 110, 247, 0.35);
+        transition:
+          opacity 0.15s,
+          box-shadow 0.15s,
+          transform 0.1s;
+        letter-spacing: 0.01em;
+      }
+      .btn-submit:hover:not(:disabled) {
+        opacity: 0.93;
+        box-shadow: 0 6px 28px rgba(79, 110, 247, 0.45);
+        transform: translateY(-1px);
+      }
+      .btn-submit:active:not(:disabled) {
+        transform: translateY(0);
+      }
+      .btn-submit:disabled {
+        opacity: 0.5;
+        cursor: not-allowed;
+        box-shadow: none;
+        transform: none;
+      }
+
+      /* Messages */
+      .msg {
+        display: none;
+        align-items: flex-start;
+        gap: 10px;
+        margin-top: 14px;
+        padding: 12px 14px;
+        border-radius: 10px;
+        font-size: 0.83rem;
+        font-weight: 500;
+        line-height: 1.45;
+      }
+      .msg.show {
+        display: flex;
+      }
+      .msg-icon {
+        flex-shrink: 0;
+        margin-top: 1px;
+      }
+      .msg--error {
+        background: #fef2f2;
+        border: 1px solid #fecaca;
+        color: var(--error);
+      }
+      .msg--success {
+        background: #f0fdf4;
+        border: 1px solid #bbf7d0;
+        color: var(--success);
+      }
+
+      /* Back link */
+      .back-link {
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        gap: 6px;
+        margin-top: 24px;
+        font-size: 0.82rem;
+        font-weight: 600;
+        color: var(--text-muted);
+        text-decoration: none;
+        transition: color 0.12s;
+      }
+      .back-link:hover {
+        color: var(--primary);
+      }
+
+      /* Invalid state */
+      .invalid-state {
+        text-align: center;
+        padding: 16px 0 8px;
+      }
+      .invalid-icon-wrap {
+        width: 64px;
+        height: 64px;
+        border-radius: 50%;
+        background: #fef2f2;
+        border: 2px solid #fecaca;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        margin: 0 auto 20px;
+        font-size: 1.8rem;
+      }
+      .invalid-title {
+        font-size: 1.2rem;
+        font-weight: 800;
+        color: var(--text);
+        margin-bottom: 10px;
+        letter-spacing: -0.02em;
+      }
+      .invalid-msg {
+        font-size: 0.85rem;
+        color: var(--text-muted);
+        line-height: 1.6;
+      }
+
+      /* Loading pulse */
+      .loading-dots span {
+        display: inline-block;
+        width: 7px;
+        height: 7px;
+        border-radius: 50%;
+        background: #c7d2fe;
+        animation: pulse 1.2s ease-in-out infinite;
+        margin: 0 2px;
+      }
+      .loading-dots span:nth-child(2) {
+        animation-delay: 0.2s;
+      }
+      .loading-dots span:nth-child(3) {
+        animation-delay: 0.4s;
+      }
+      @keyframes pulse {
+        0%,
+        80%,
+        100% {
+          transform: scale(0.7);
+          opacity: 0.5;
+        }
+        40% {
+          transform: scale(1);
+          opacity: 1;
+        }
+      }
+
+      /* Responsive */
+      @media (max-width: 768px) {
+        .page {
+          grid-template-columns: 1fr;
+        }
+        .brand-panel {
+          display: none;
+        }
+        .form-panel {
+          padding: 40px 24px;
+        }
+      }
+    </style>
+  </head>
+  <body>
+    <div class="page">
+      <!-- ── Left brand panel ─────────────────────────────────── -->
+      <div class="brand-panel">
+        <div class="brand-dots"></div>
+
+        <div class="brand-top">
+          <div class="brand-logo">
+            <img src="assets/logo.svg" alt="Logo" class="brand-logo-img" />
+            <div>
+              <div class="brand-name">Load Test Platform</div>
+              <div class="brand-sub">Internal Platform</div>
+            </div>
+          </div>
+        </div>
+
+        <div class="brand-middle">
+          <div class="brand-hero">
+            <div class="brand-headline">Secure<br /><span>Password Reset</span></div>
+            <p class="brand-desc">
+              Your account security matters. Use your admin-issued reset link to set a new password
+              and regain access.
+            </p>
+
+            <div class="brand-steps">
+              <div class="brand-step">
+                <div class="step-num">1</div>
+                <div class="step-text">
+                  <strong>Link verified</strong>
+                  <span>Admin-issued one-time token confirmed</span>
+                </div>
+              </div>
+              <div class="brand-step">
+                <div class="step-num">2</div>
+                <div class="step-text">
+                  <strong>Set new password</strong>
+                  <span>Choose a strong password, at least 6 characters</span>
+                </div>
+              </div>
+              <div class="brand-step">
+                <div class="step-num">3</div>
+                <div class="step-text">
+                  <strong>Sign in</strong>
+                  <span>Redirected automatically after reset</span>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <div class="brand-bottom">© 2026 Load Test Platform · Open source</div>
+      </div>
+
+      <!-- ── Right form panel ──────────────────────────────────── -->
+      <div class="form-panel">
+        <div class="form-inner">
+          <!-- Loading -->
+          <div id="loadingState">
+            <div class="loading-dots" style="margin-bottom: 16px">
+              <span></span><span></span><span></span>
+            </div>
+            <p style="font-size: 0.9rem; color: var(--text-muted)">Verifying reset link…</p>
+          </div>
+
+          <!-- Invalid -->
+          <div id="invalidState" style="display: none">
+            <div class="invalid-state">
+              <div class="invalid-icon-wrap">🔒</div>
+              <div class="invalid-title">Link invalid or expired</div>
+              <p class="invalid-msg">
+                This password reset link has already been used or has expired.<br />Ask your admin
+                to generate a new one.
+              </p>
+            </div>
+            <a href="/login" class="back-link">
+              <svg
+                width="14"
+                height="14"
+                viewBox="0 0 24 24"
+                fill="none"
+                stroke="currentColor"
+                stroke-width="2.5"
+              >
+                <polyline points="15 18 9 12 15 6" />
+              </svg>
+              Back to sign in
+            </a>
+          </div>
+
+          <!-- Reset form -->
+          <div id="resetForm" style="display: none">
+            <div class="form-eyebrow">
+              <div class="form-eyebrow-dot"></div>
+              Password Reset
+            </div>
+
+            <h1>Set new password</h1>
+            <p class="form-subtitle">Choose a strong password for your account.</p>
+
+            <div class="user-chip" id="userChip">
+              <div class="user-chip-avatar" id="userAvatar"></div>
+              <div>
+                <div class="user-chip-name" id="usernameLabel"></div>
+                <div class="user-chip-label">Account holder</div>
+              </div>
+            </div>
+
+            <form id="form" autocomplete="off">
+              <div class="field">
+                <label class="field-label" for="password">
+                  <svg
+                    width="13"
+                    height="13"
+                    viewBox="0 0 24 24"
+                    fill="none"
+                    stroke="currentColor"
+                    stroke-width="2.5"
+                  >
+                    <rect x="3" y="11" width="18" height="11" rx="2" />
+                    <path d="M7 11V7a5 5 0 0 1 10 0v4" />
+                  </svg>
+                  New Password
+                </label>
+                <div class="input-wrap">
+                  <svg
+                    class="input-icon"
+                    width="16"
+                    height="16"
+                    viewBox="0 0 24 24"
+                    fill="none"
+                    stroke="currentColor"
+                    stroke-width="2"
+                  >
+                    <rect x="3" y="11" width="18" height="11" rx="2" />
+                    <path d="M7 11V7a5 5 0 0 1 10 0v4" />
+                  </svg>
+                  <input
+                    id="password"
+                    type="password"
+                    placeholder="Minimum 6 characters"
+                    autocomplete="new-password"
+                  />
+                  <button
+                    type="button"
+                    class="pw-toggle"
+                    id="pw1Toggle"
+                    aria-label="Toggle password visibility"
+                  >
+                    <svg
+                      id="eye1"
+                      width="16"
+                      height="16"
+                      viewBox="0 0 24 24"
+                      fill="none"
+                      stroke="currentColor"
+                      stroke-width="2"
+                    >
+                      <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z" />
+                      <circle cx="12" cy="12" r="3" />
+                    </svg>
+                  </button>
+                </div>
+              </div>
+
+              <div class="field">
+                <label class="field-label" for="confirm">
+                  <svg
+                    width="13"
+                    height="13"
+                    viewBox="0 0 24 24"
+                    fill="none"
+                    stroke="currentColor"
+                    stroke-width="2.5"
+                  >
+                    <path d="M22 11.08V12a10 10 0 1 1-5.93-9.14" />
+                    <polyline points="22 4 12 14.01 9 11.01" />
+                  </svg>
+                  Confirm Password
+                </label>
+                <div class="input-wrap">
+                  <svg
+                    class="input-icon"
+                    width="16"
+                    height="16"
+                    viewBox="0 0 24 24"
+                    fill="none"
+                    stroke="currentColor"
+                    stroke-width="2"
+                  >
+                    <path d="M22 11.08V12a10 10 0 1 1-5.93-9.14" />
+                    <polyline points="22 4 12 14.01 9 11.01" />
+                  </svg>
+                  <input
+                    id="confirm"
+                    type="password"
+                    placeholder="Repeat your password"
+                    autocomplete="new-password"
+                  />
+                  <button
+                    type="button"
+                    class="pw-toggle"
+                    id="pw2Toggle"
+                    aria-label="Toggle confirm password visibility"
+                  >
+                    <svg
+                      id="eye2"
+                      width="16"
+                      height="16"
+                      viewBox="0 0 24 24"
+                      fill="none"
+                      stroke="currentColor"
+                      stroke-width="2"
+                    >
+                      <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z" />
+                      <circle cx="12" cy="12" r="3" />
+                    </svg>
+                  </button>
+                </div>
+                <p class="field-hint">Password must be at least 6 characters</p>
+              </div>
+
+              <button type="submit" class="btn-submit" id="submitBtn">
+                <svg
+                  width="16"
+                  height="16"
+                  viewBox="0 0 24 24"
+                  fill="none"
+                  stroke="currentColor"
+                  stroke-width="2.5"
+                >
+                  <rect x="3" y="11" width="18" height="11" rx="2" />
+                  <path d="M7 11V7a5 5 0 0 1 10 0v4" />
+                </svg>
+                Set Password
+              </button>
+
+              <div class="msg msg--error" id="errorMsg">
+                <svg
+                  class="msg-icon"
+                  width="15"
+                  height="15"
+                  viewBox="0 0 24 24"
+                  fill="none"
+                  stroke="currentColor"
+                  stroke-width="2.5"
+                >
+                  <circle cx="12" cy="12" r="10" />
+                  <line x1="12" y1="8" x2="12" y2="12" />
+                  <line x1="12" y1="16" x2="12.01" y2="16" />
+                </svg>
+                <span id="errorText"></span>
+              </div>
+
+              <div class="msg msg--success" id="successMsg">
+                <svg
+                  class="msg-icon"
+                  width="15"
+                  height="15"
+                  viewBox="0 0 24 24"
+                  fill="none"
+                  stroke="currentColor"
+                  stroke-width="2.5"
+                >
+                  <polyline points="20 6 9 17 4 12" />
+                </svg>
+                Password updated successfully! Redirecting to sign in…
+              </div>
+            </form>
+
+            <a href="/login" class="back-link">
+              <svg
+                width="14"
+                height="14"
+                viewBox="0 0 24 24"
+                fill="none"
+                stroke="currentColor"
+                stroke-width="2.5"
+              >
+                <polyline points="15 18 9 12 15 6" />
+              </svg>
+              Back to sign in
+            </a>
+          </div>
+        </div>
+      </div>
+    </div>
+    <script src="/reset.js" defer></script>
+  </body>
+</html>

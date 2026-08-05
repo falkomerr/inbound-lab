@@ -1,0 +1,2020 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="description" content="Manage and run k6 load tests from your browser">
+  <title>Load Test Platform</title>
+  <link rel="icon" type="image/svg+xml" href="assets/logo.svg">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:ital,opsz,wght@0,14..32,400;0,14..32,500;0,14..32,600;0,14..32,700;1,14..32,400&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="styles.css">
+  <!-- UI_VENDOR_START -->
+  <script src="/vendor/vue/vue.global.prod.js"></script>
+  <script src="/vendor/chart.js/chart.umd.js"></script>
+  <!-- UI_VENDOR_END -->
+</head>
+<body>
+  <div id="app" v-cloak>
+    <!-- Toast Notification Container -->
+    <transition-group name="toast" tag="div" class="toast-container" role="status" aria-live="polite" aria-atomic="true">
+      <div v-for="toast in toasts" :key="toast.id" :class="['toast', toast.type]">
+        <span>{{ toast.message }}</span>
+      </div>
+    </transition-group>
+
+    <!-- App Navigation Bar -->
+    <nav class="app-nav">
+      <div class="nav-run-bar" v-if="isRunning || pausedForResumeActive" :style="{width: progress + '%'}"></div>
+      <div class="nav-inner">
+
+        <!-- Brand -->
+        <div class="nav-brand">
+          <img src="assets/logo.svg" alt="Load Test Logo" class="nav-logo" />
+          <div class="nav-brand-text">
+            <span class="nav-brand-name">Load Test</span>
+            <span class="nav-brand-sub">k6 Platform</span>
+          </div>
+        </div>
+
+        <!-- Tab navigation -->
+        <div class="nav-tabs" role="tablist">
+          <button
+            v-if="canSeeScenarios"
+            role="tab"
+            :aria-selected="activeTab === 'dashboard'"
+            @click="activeTab = 'dashboard'"
+            :class="['nav-tab', { active: activeTab === 'dashboard' }]"
+          >
+            <Icon name="chart" :size="16" />
+            <span>Test Scenarios</span>
+          </button>
+          <button
+            v-if="showCurlImportTab"
+            role="tab"
+            :aria-selected="activeTab === 'curl-import'"
+            @click="activeTab = 'curl-import'"
+            :class="['nav-tab', { active: activeTab === 'curl-import' }]"
+          >
+            <Icon name="code" :size="16" />
+            <span>Import cURL</span>
+          </button>
+        </div>
+
+        <!-- Right-side actions -->
+        <div class="nav-end">
+          <!-- Pause / Resume / Stop in nav when sidebar is hidden -->
+          <button
+            v-if="isRunning && canPause && !(showConfigPanel && canSeeConfig)"
+            @click="pauseTest"
+            :disabled="isPausingTest || isLoading"
+            class="nav-action-btn btn-nav-pause"
+            type="button"
+            :title="isPausingTest ? 'Pausing…' : 'Pause test (remaining duration is kept)'"
+          >
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><rect x="5" y="4" width="4" height="16" rx="1"></rect><rect x="15" y="4" width="4" height="16" rx="1"></rect></svg>
+            {{ isPausingTest ? 'Pausing…' : 'Pause' }}
+          </button>
+          <button
+            v-if="pausedForResumeActive && canResume && !(showConfigPanel && canSeeConfig)"
+            @click="resumeTest"
+            :disabled="isLoading"
+            class="nav-action-btn btn-nav-resume"
+            type="button"
+            title="Resume with the remaining configured duration"
+          >
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><polygon points="6 4 20 12 6 20 6 4"></polygon></svg>
+            Resume
+          </button>
+          <button
+            v-if="((isRunning && canStop) || (pausedForResumeActive && canStop)) && !(showConfigPanel && canSeeConfig)"
+            @click="stopTest"
+            :disabled="isStoppingTest"
+            class="nav-action-btn btn-nav-stop"
+            :title="pausedForResume ? 'Stop — ends this paused session (you cannot resume)' : (isStoppingTest ? 'Stopping test...' : 'Stop running test')"
+          >
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><rect x="7" y="7" width="10" height="10" rx="1.5"></rect></svg>
+            {{ isStoppingTest ? 'Stopping...' : (pausedForResume ? 'Stop' : 'Stop Test') }}
+          </button>
+
+          <!-- Queue indicator: someone else is preparing a test -->
+          <div
+            v-if="someoneElsePreparing && !isRunning"
+            class="nav-queue-chip"
+            :title="preparingUser.username + ' is preparing a test'"
+          >
+            <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
+            <span>{{ preparingUser.username }} is preparing…</span>
+            <button
+              v-if="canOverridePreparingLock"
+              type="button"
+              class="nav-queue-release-btn"
+              @click.stop="releasePreparingLock"
+              title="Release preparing lock so others can start a test"
+            >
+              Release
+            </button>
+          </div>
+
+          <!-- New Test button (visible after test completes and config panel is hidden) -->
+          <button
+            v-if="showNavNewTestButton"
+            @click="startNewTest"
+            :disabled="blockedByOthersPreparing"
+            class="nav-action-btn btn-new-test"
+            :title="blockedByOthersPreparing ? preparingUser.username + ' is already preparing a test' : 'Configure and run a new test'"
+          >
+            <Icon name="plus" :size="14" />
+            New Test
+          </button>
+
+          <!-- Admin -->
+          <button
+            v-if="authUser && authUser.role === 'admin'"
+            @click="openAdminPanel"
+            class="nav-action-btn btn-admin"
+            title="Admin panel"
+          >
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>
+            Admin
+          </button>
+
+          <!-- User chip -->
+          <div class="header-user nav-user" v-if="authUser">
+            <span class="user-avatar">{{ (authUser.username || '?')[0].toUpperCase() }}</span>
+            <span class="user-name">{{ authUser.username }}</span>
+            <span class="user-role" :class="'role-' + authUser.role">{{ roleLabels[authUser.role] || authUser.role }}</span>
+          </div>
+
+          <!-- Dark mode toggle -->
+          <button
+            @click="toggleDarkMode"
+            class="nav-icon-btn dark-mode-toggle"
+            :aria-label="isDarkMode ? 'Switch to light mode' : 'Switch to dark mode'"
+            :title="isDarkMode ? 'Switch to light mode' : 'Switch to dark mode'"
+          >
+            <Icon :name="isDarkMode ? 'sun' : 'moon'" :size="18" />
+          </button>
+
+          <!-- Logout -->
+          <button @click="logout" class="nav-icon-btn btn-logout" title="Sign out" aria-label="Sign out">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/><polyline points="16 17 21 12 16 7"/><line x1="21" y1="12" x2="9" y2="12"/></svg>
+          </button>
+        </div>
+
+      </div>
+    </nav>
+
+    <div class="page-body">
+
+      <!-- Admin Panel Modal -->
+      <div class="admin-overlay" v-if="showAdminPanel" @click.self="closeAdminPanel">
+        <div class="admin-modal" :class="{ 'admin-modal--wide': adminTab === 'audit' }">
+          <div class="admin-modal-header">
+            <h2>
+              <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/></svg>
+              {{ adminPanelTitle }}
+            </h2>
+            <button class="admin-close" @click="closeAdminPanel">✕</button>
+          </div>
+
+          <div class="admin-modal-layout">
+            <nav class="admin-sidebar" aria-label="Admin sections">
+              <button class="admin-nav-item" :class="{ active: adminTab === 'users' }" @click="switchAdminTab('users')">
+                <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/></svg>
+                Users
+              </button>
+              <button class="admin-nav-item" :class="{ active: adminTab === 'invite' }" @click="switchAdminTab('invite')">
+                <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 4h16c1.1 0 2 .9 2 2v12c0 1.1-.9 2-2 2H4c-1.1 0-2-.9-2-2V6c0-1.1.9-2 2-2z"/><polyline points="22,6 12,13 2,6"/></svg>
+                Invite Link
+              </button>
+              <button class="admin-nav-item" :class="{ active: adminTab === 'audit' }" @click="switchAdminTab('audit')">
+                <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/></svg>
+                Audit Log
+              </button>
+            </nav>
+
+            <div class="admin-modal-body">
+            <!-- ── Users tab ── -->
+            <div v-if="adminTab === 'users'">
+            <!-- Form -->
+            <div class="admin-form-section" id="admin-user-form">
+              <h3>{{ adminEditId ? 'Edit User' : 'Add User' }}</h3>
+              <div class="admin-form-row">
+                <!-- Email — auto-links username -->
+                <div class="admin-field admin-field-email">
+                  <label>Email</label>
+                  <div class="email-input-wrap">
+                    <input
+                      v-model="adminForm.email"
+                      @input="onEmailInput"
+                      type="email"
+                      placeholder="user@example.com"
+                      autocomplete="off"
+                    />
+                  </div>
+                </div>
+                <!-- Username (auto-filled, editable) -->
+                <div class="admin-field">
+                  <label>
+                    Username
+                    <span class="field-hint" v-if="adminForm.emailLinked">linked from email</span>
+                  </label>
+                  <input v-model="adminForm.username" type="text" placeholder="username" autocomplete="off" @input="adminForm.emailLinked = false" />
+                </div>
+              </div>
+              <div class="admin-form-row admin-form-row-2">
+                <div class="admin-field admin-field-password">
+                  <label>{{ adminEditId ? 'New password (optional)' : 'Password' }}</label>
+                  <div class="admin-pw-wrap">
+                    <input
+                      v-model="adminForm.password"
+                      :type="showAdminPassword ? 'text' : 'password'"
+                      :placeholder="adminEditId ? 'Leave blank to keep current password' : 'Min. 8 chars, upper, lower, number, symbol'"
+                      autocomplete="new-password"
+                    />
+                    <button
+                      type="button"
+                      class="admin-pw-toggle"
+                      tabindex="-1"
+                      :aria-pressed="showAdminPassword"
+                      :aria-label="showAdminPassword ? 'Hide password' : 'Show password'"
+                      :title="showAdminPassword ? 'Hide password' : 'Show password'"
+                      @click="showAdminPassword = !showAdminPassword"
+                    >
+                      <svg v-if="!showAdminPassword" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                        <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z" />
+                        <circle cx="12" cy="12" r="3" />
+                      </svg>
+                      <svg v-else width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                        <path d="M17.94 17.94A10.07 10.07 0 0 1 12 20c-7 0-11-8-11-8a18.45 18.45 0 0 1 5.06-5.94M9.9 4.24A9.12 9.12 0 0 1 12 4c7 0 11 8 11 8a18.5 18.5 0 0 1-2.16 3.19m-6.72-1.07a3 3 0 1 1-4.24-4.24" />
+                        <line x1="1" y1="1" x2="23" y2="23" />
+                      </svg>
+                    </button>
+                  </div>
+                  <span class="admin-pw-hint" v-if="adminEditId">Only fill this field when changing the user’s password.</span>
+                </div>
+                <div class="admin-field admin-field-role">
+                  <label>Role</label>
+                  <select v-model="adminForm.role">
+                    <option value="developer">Developer</option>
+                    <option value="qa">QA</option>
+                    <option value="pm">PM</option>
+                    <option value="tech-lead">Tech Lead</option>
+                    <option value="admin">Admin</option>
+                  </select>
+                </div>
+              </div>
+              <!-- Permissions section -->
+              <div class="perm-section">
+                <div class="perm-section-title">
+                  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="11" width="18" height="11" rx="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg>
+                  Access Permissions
+                  <span class="perm-all-badge" v-if="!adminForm.permissions.modes.length && !adminForm.permissions.teams.length">Full access</span>
+                </div>
+
+                <div class="perm-group">
+                  <div class="perm-group-label">Tabs</div>
+                  <div class="perm-checks">
+                    <label class="perm-check" v-for="m in availableModes" :key="m.id">
+                      <input type="checkbox" :value="m.id" v-model="adminForm.permissions.modes" />
+                      <span class="perm-check-box"></span>
+                      {{ m.label }}
+                    </label>
+                    <span class="perm-hint">Leave all unchecked = access to both tabs</span>
+                  </div>
+                </div>
+
+                <div class="perm-group">
+                  <div class="perm-group-label">Teams (Scenarios)</div>
+                  <div class="perm-checks">
+                    <label class="perm-check" v-for="t in availableTeams" :key="t.id">
+                      <input type="checkbox" :value="t.id" v-model="adminForm.permissions.teams" />
+                      <span class="perm-check-box"></span>
+                      {{ t.label }}
+                    </label>
+                    <span class="perm-hint">Leave all unchecked = access to all teams</span>
+                  </div>
+                </div>
+              </div>
+
+              <!-- Load Test Limits -->
+              <div class="perm-section limits-section">
+                <div class="limits-header">
+                  <div class="perm-section-title" style="margin-bottom:0">
+                    <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>
+                    Load Test Limits
+                  </div>
+                    <label class="limits-toggle">
+                      <input type="checkbox" v-model="adminForm.limits.enabled" />
+                      <span class="limits-toggle-label">{{ adminForm.limits.enabled ? 'Enabled' : 'Disabled' }}</span>
+                    </label>
+                </div>
+                <div class="limits-fields" v-if="adminForm.limits.enabled">
+                  <div class="limits-field">
+                    <label>Max VUs</label>
+                    <div class="limits-input-wrap">
+                      <input type="number" v-model.number="adminForm.limits.maxVus" min="1" max="500" class="limits-input" />
+                      <span class="limits-unit">VUs</span>
+                    </div>
+                  </div>
+                  <div class="limits-field">
+                    <label>Max Duration</label>
+                    <div class="limits-input-wrap">
+                      <input type="number" v-model.number="adminForm.limits.maxDurationMinutes" min="1" max="480" class="limits-input" />
+                      <span class="limits-unit">min</span>
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              <div class="admin-form-actions">
+                <button class="btn-admin-save" @click="saveAdminUser" :disabled="adminLoading">
+                  {{ adminEditId ? 'Update' : 'Create' }}
+                </button>
+                <button v-if="adminEditId" class="btn-admin-cancel" @click="resetAdminForm">Cancel</button>
+              </div>
+              <div class="admin-msg admin-msg-error" v-if="adminError">{{ adminError }}</div>
+              <div class="admin-msg admin-msg-success" v-if="adminSuccess">{{ adminSuccess }}</div>
+            </div>
+
+            <!-- Bulk suspend: one step, admins never affected -->
+            <section class="admin-bulk-panel" aria-labelledby="admin-bulk-panel-title">
+              <div class="admin-bulk-panel__accent" aria-hidden="true"></div>
+              <div class="admin-bulk-panel__content">
+                <header class="admin-bulk-panel__header">
+                  <div class="admin-bulk-panel__icon" aria-hidden="true">
+                    <Icon name="users" :size="22" />
+                  </div>
+                  <div class="admin-bulk-panel__header-text">
+                    <p class="admin-bulk-panel__eyebrow">Mass actions</p>
+                    <h3 id="admin-bulk-panel-title" class="admin-bulk-panel__title">Suspend or restore accounts</h3>
+                  </div>
+                </header>
+                <div class="admin-bulk-panel__grid">
+                  <ul class="admin-bulk-panel__facts">
+                    <li v-if="canBulkSuspendNonAdmins">
+                      <strong>Suspend all non-admins</strong> signs out every user except
+                      <strong>administrators</strong> and blocks their login until access is restored.
+                    </li>
+                    <li v-else>
+                      All non-admin accounts are already suspended. Use <strong>Restore all accounts</strong> below
+                      when you want to let them sign in again.
+                    </li>
+                    <li><strong>Restore all</strong> clears suspension on every account in one step.</li>
+                  </ul>
+                  <div class="admin-bulk-panel__actions">
+                    <button
+                      v-if="canBulkSuspendNonAdmins"
+                      type="button"
+                      class="btn admin-bulk-panel__btn admin-bulk-panel__btn--danger"
+                      @click="suspendAllNonAdmins"
+                      :disabled="adminLoading"
+                      title="Suspends all users except those with the Admin role"
+                    >
+                      Suspend all non-admins
+                    </button>
+                    <button
+                      type="button"
+                      class="btn admin-bulk-panel__btn admin-bulk-panel__btn--muted"
+                      @click="unbanAllUsersAdmin"
+                      :disabled="adminLoading"
+                      title="Clears suspension on every account at once"
+                    >
+                      Restore all accounts
+                    </button>
+                  </div>
+                </div>
+              </div>
+            </section>
+
+            <!-- User list -->
+            <div class="admin-user-list">
+              <div class="admin-user-list__top">
+                <div class="admin-user-list__top-row">
+                  <h2 class="user-list-title">Users</h2>
+                  <span
+                    class="user-list-counts"
+                    :title="adminUserFiltersActive ? `${filteredAdminUsers.length} of ${adminUsers.length} shown` : `${adminUsers.length} users`"
+                  >
+                    <span class="user-count">{{ filteredAdminUsers.length }}</span>
+                    <span v-if="adminUserFiltersActive && adminUsers.length" class="user-count-of">/ {{ adminUsers.length }}</span>
+                  </span>
+                </div>
+
+                <div class="admin-user-find" v-if="adminUsers.length && !adminLoading">
+                  <span id="admin-user-find-hint" class="sr-only">
+                    Results update as you type. Use filters to narrow by role or suspension status.
+                  </span>
+                  <div class="admin-user-find__bar">
+                    <div class="admin-user-find__search-col">
+                      <label for="admin-user-search-input" class="admin-user-find__label">Search users</label>
+                      <div class="admin-user-find__search-field">
+                        <span class="admin-user-find__search-icon" aria-hidden="true">
+                          <Icon name="search" :size="18" />
+                        </span>
+                        <input
+                          id="admin-user-search-input"
+                          v-model.trim="adminUserSearch"
+                          type="text"
+                          inputmode="search"
+                          enterkeyhint="search"
+                          class="admin-user-find__search-input"
+                          placeholder="Username or email…"
+                          autocomplete="off"
+                          spellcheck="false"
+                          aria-describedby="admin-user-find-hint"
+                        />
+                      </div>
+                    </div>
+                    <div class="admin-user-find__filters-col" role="group" aria-label="Narrow the user list">
+                      <div class="admin-user-find__filters-head">
+                        <span class="admin-user-find__label admin-user-find__label--inline" id="admin-user-filters-label">Filters</span>
+                        <button
+                          v-if="adminUserFiltersActive"
+                          type="button"
+                          class="btn btn-secondary admin-user-find__reset"
+                          @click="clearAdminUserFilters"
+                          :disabled="adminLoading"
+                        >
+                          Reset
+                        </button>
+                      </div>
+                      <div class="admin-user-find__select-row" aria-labelledby="admin-user-filters-label">
+                        <select
+                          v-model="adminUserFilterRole"
+                          class="form-control admin-user-find__select"
+                          aria-label="Filter by role"
+                        >
+                          <option value="all">All roles</option>
+                          <option value="admin">Admin</option>
+                          <option value="tech-lead">Tech Lead</option>
+                          <option value="developer">Developer</option>
+                          <option value="qa">QA</option>
+                          <option value="pm">PM</option>
+                        </select>
+                        <select
+                          v-model="adminUserFilterStatus"
+                          class="form-control admin-user-find__select"
+                          aria-label="Filter by account status"
+                        >
+                          <option value="all">All statuses</option>
+                          <option value="active">Active only</option>
+                          <option value="suspended">Suspended only</option>
+                        </select>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              <div class="admin-loading" v-if="adminLoading && !adminUsers.length">Loading…</div>
+              <div v-else-if="!adminUsers.length" class="admin-user-empty">No users yet.</div>
+              <div v-else-if="!adminLoading && !filteredAdminUsers.length" class="admin-user-empty">
+                No users match your search or filters.
+                <button type="button" class="admin-user-empty-clear" @click="clearAdminUserFilters">Clear filters</button>
+              </div>
+              <div class="user-cards" v-else>
+                <div
+                  v-for="user in filteredAdminUsers"
+                  :key="user.id"
+                  class="user-card"
+                  :class="{ 'user-card--editing': adminEditId === user.id, 'user-card--banned': user.banned && user.role !== 'admin' }"
+                >
+                  <!-- Top row: identity · meta · actions -->
+                  <div class="user-card-row">
+
+                    <!-- Left: avatar + identity -->
+                    <div class="user-card-identity">
+                      <div class="user-card-avatar" :class="'avatar-' + user.role">{{ user.username[0].toUpperCase() }}</div>
+                      <div class="user-card-info">
+                        <div class="user-card-name">
+                          {{ user.username }}
+                          <span v-if="authUser && authUser.id === user.id" class="you-badge">you</span>
+                        </div>
+                        <div v-if="user.email" class="user-card-email">{{ user.email }}</div>
+                        <div v-else class="user-card-email user-card-email--none">No email set</div>
+                      </div>
+                    </div>
+
+                    <!-- Middle: role + meta -->
+                    <div class="user-card-meta">
+                      <div class="user-card-role-row">
+                        <span class="user-role" :class="'role-' + user.role">{{ roleLabels[user.role] || user.role }}</span>
+                        <span v-if="user.banned && user.role !== 'admin'" class="user-suspended-badge">Suspended</span>
+                      </div>
+                      <div class="user-card-chips">
+                        <span v-if="user.limits?.enabled" class="user-card-chip user-card-chip--limit" title="Load test limits enabled">
+                          <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>
+                          {{ user.limits.maxVus }} VUs · {{ user.limits.maxDurationMinutes }}m
+                        </span>
+                        <span class="user-card-chip user-card-chip--date">
+                          <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="4" width="18" height="18" rx="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg>
+                          {{ user.createdAt ? new Date(user.createdAt).toLocaleDateString('en-GB',{day:'2-digit',month:'short',year:'numeric'}) : '—' }}
+                        </span>
+                      </div>
+                    </div>
+
+                    <!-- Right: actions -->
+                    <div class="user-card-actions">
+                      <button
+                        v-if="user.role !== 'admin' && !user.banned"
+                        type="button"
+                        class="user-action-btn user-action-btn--ban"
+                        @click="toggleUserBan(user)"
+                        :disabled="adminLoading"
+                        title="Suspend this user (sign out and block login)"
+                      >
+                        Suspend
+                      </button>
+                      <button
+                        v-else-if="user.banned && user.role !== 'admin'"
+                        type="button"
+                        class="user-action-btn user-action-btn--unban"
+                        @click="toggleUserBan(user)"
+                        :disabled="adminLoading"
+                        title="Allow this user to log in again"
+                      >
+                        Unban
+                      </button>
+                      <button class="user-action-btn user-action-btn--edit" @click="editAdminUser(user)" title="Edit user">
+                        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>
+                        Edit
+                      </button>
+                      <button class="user-action-btn user-action-btn--reset" @click="generateResetLink(user)" title="Generate reset password link">
+                        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="11" width="18" height="11" rx="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg>
+                        Reset
+                      </button>
+                      <button
+                        class="user-action-btn user-action-btn--delete"
+                        @click="deleteAdminUser(user.id)"
+                        :disabled="authUser && authUser.id === user.id"
+                        title="Delete user"
+                      >
+                        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"/><path d="M10 11v6"/><path d="M14 11v6"/><path d="M9 6V4h6v2"/></svg>
+                        Delete
+                      </button>
+                    </div>
+                  </div>
+
+                  <!-- Reset link strip -->
+                  <div class="reset-link-row" v-if="resetLinks[user.id]">
+                    <div class="reset-link-left">
+                      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="11" width="18" height="11" rx="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg>
+                      <span class="reset-link-label">Reset link</span>
+                      <span class="reset-link-expiry">
+                        <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
+                        Expires {{ formatResetExpiry(resetLinks[user.id].expiresAt) }}
+                      </span>
+                    </div>
+                    <code class="reset-link-url">{{ resetLinks[user.id].link }}</code>
+                    <button class="reset-link-copy" @click="copyResetLink(user.id)" title="Copy link">
+                      <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg>
+                      {{ copiedResetId === user.id ? 'Copied!' : 'Copy link' }}
+                    </button>
+                    <button class="reset-link-dismiss" @click="dismissResetLink(user.id)" title="Dismiss">
+                      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+                    </button>
+                  </div>
+                </div>
+              </div>
+            </div>
+            </div> <!-- end users tab -->
+
+            <!-- ── Invite tab ── -->
+            <div v-if="adminTab === 'invite'">
+              <div class="admin-form-section">
+                <h3>Send Invite Link</h3>
+                <p class="invite-tab-desc">Generate a one-time invite link. The recipient opens the link and creates their own account.</p>
+
+                <div class="admin-form-row">
+                  <div class="admin-field admin-field-email">
+                    <label>Email</label>
+                    <div class="email-input-wrap">
+                      <input
+                        v-model="inviteForm.email"
+                        type="email"
+                        placeholder="user@example.com"
+                        autocomplete="off"
+                      />
+                    </div>
+                  </div>
+                  <div class="admin-field admin-field-role">
+                    <label>Role</label>
+                    <select v-model="inviteForm.role">
+                      <option value="developer">Developer</option>
+                      <option value="qa">QA</option>
+                      <option value="pm">PM</option>
+                      <option value="tech-lead">Tech Lead</option>
+                      <option value="admin">Admin</option>
+                    </select>
+                  </div>
+                </div>
+
+                <!-- Permissions for invite -->
+                <div class="perm-section">
+                  <div class="perm-section-title">
+                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="11" width="18" height="11" rx="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg>
+                    Access Permissions
+                    <span class="perm-all-badge" v-if="!inviteForm.permissions.modes.length && !inviteForm.permissions.teams.length">Full access</span>
+                  </div>
+                  <div class="perm-group">
+                    <div class="perm-group-label">Tabs</div>
+                    <div class="perm-checks">
+                      <label class="perm-check" v-for="m in availableModes" :key="m.id">
+                        <input type="checkbox" :value="m.id" v-model="inviteForm.permissions.modes" />
+                        <span class="perm-check-box"></span>
+                        {{ m.label }}
+                      </label>
+                      <span class="perm-hint">Leave all unchecked = access to both tabs</span>
+                    </div>
+                  </div>
+                  <div class="perm-group">
+                    <div class="perm-group-label">Teams (Scenarios)</div>
+                    <div class="perm-checks">
+                      <label class="perm-check" v-for="t in availableTeams" :key="t.id">
+                        <input type="checkbox" :value="t.id" v-model="inviteForm.permissions.teams" />
+                        <span class="perm-check-box"></span>
+                        {{ t.label }}
+                      </label>
+                      <span class="perm-hint">Leave all unchecked = access to all teams</span>
+                    </div>
+                  </div>
+                </div>
+
+                <!-- Load Test Limits for invite -->
+                <div class="perm-section limits-section">
+                  <div class="limits-header">
+                    <div class="perm-section-title" style="margin-bottom:0">
+                      <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>
+                      Load Test Limits
+                    </div>
+                    <label class="limits-toggle">
+                      <input type="checkbox" v-model="inviteForm.limits.enabled" />
+                      <span class="limits-toggle-label">{{ inviteForm.limits.enabled ? 'Enabled' : 'Disabled' }}</span>
+                    </label>
+                  </div>
+                  <div class="limits-fields" v-if="inviteForm.limits.enabled">
+                    <div class="limits-field">
+                      <label>Max VUs</label>
+                      <div class="limits-input-wrap">
+                        <input type="number" v-model.number="inviteForm.limits.maxVus" min="1" max="500" class="limits-input" />
+                        <span class="limits-unit">VUs</span>
+                      </div>
+                    </div>
+                    <div class="limits-field">
+                      <label>Max Duration</label>
+                      <div class="limits-input-wrap">
+                        <input type="number" v-model.number="inviteForm.limits.maxDurationMinutes" min="1" max="480" class="limits-input" />
+                        <span class="limits-unit">min</span>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+
+                <div class="admin-form-actions">
+                  <button class="btn-admin-save" @click="generateInvite" :disabled="adminLoading">
+                    Generate Invite Link
+                  </button>
+                </div>
+
+                <!-- Generated link display -->
+                <div class="invite-link-box" v-if="generatedInviteLink">
+                  <div class="invite-link-label">
+                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"/><path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"/></svg>
+                    Invite link ready — share with the user
+                  </div>
+                  <div class="invite-link-row">
+                    <input class="invite-link-input" readonly :value="generatedInviteLink" />
+                    <button class="btn-copy" @click="copyInviteLink" :class="{ copied: inviteCopied }">
+                      <svg v-if="!inviteCopied" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg>
+                      <svg v-else width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="20 6 9 17 4 12"/></svg>
+                      {{ inviteCopied ? 'Copied!' : 'Copy' }}
+                    </button>
+                  </div>
+                  <div class="invite-link-meta">Expires in 7 days &bull; One-time use only</div>
+                </div>
+
+                <div class="admin-msg admin-msg-error" v-if="adminError">{{ adminError }}</div>
+                <div class="admin-msg admin-msg-success" v-if="adminSuccess">{{ adminSuccess }}</div>
+              </div>
+
+              <!-- Pending invites list -->
+              <div class="admin-user-list">
+                <h3>
+                  Pending Invites
+                  <span class="user-count">{{ adminInvites.length }}</span>
+                </h3>
+                <div class="admin-loading" v-if="adminLoading && !adminInvites.length">Loading…</div>
+                <div v-else-if="!adminInvites.length" class="invite-empty">No pending invites</div>
+                <table class="admin-table" v-else>
+                  <thead>
+                    <tr>
+                      <th>Email</th>
+                      <th>Role</th>
+                      <th>Expires</th>
+                      <th></th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    <template v-for="inv in adminInvites" :key="inv.token">
+                      <tr>
+                        <td class="td-email"><span class="email-pill">{{ inv.email }}</span></td>
+                        <td><span class="user-role" :class="'role-' + inv.role">{{ roleLabels[inv.role] || inv.role }}</span></td>
+                        <td class="td-date">{{ new Date(inv.expiresAt).toLocaleDateString() }}</td>
+                        <td class="td-actions">
+                          <button class="btn-copy-sm" @click="toggleInviteLink(inv.token)" :class="{ active: expandedInviteToken === inv.token }" title="Show link">🔗</button>
+                          <button class="btn-row-delete" @click="revokeInvite(inv.token)" title="Revoke">🗑</button>
+                        </td>
+                      </tr>
+                      <!-- Inline link row -->
+                      <tr v-if="expandedInviteToken === inv.token" class="invite-link-expanded-row">
+                        <td colspan="4">
+                          <div class="invite-link-inline">
+                            <input class="invite-link-input" readonly :value="buildInviteLink(inv.token)" />
+                            <button class="btn-copy" @click="copyExpandedLink(inv.token)" :class="{ copied: copiedExpandedToken === inv.token }">
+                              <svg v-if="copiedExpandedToken !== inv.token" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg>
+                              <svg v-else width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="20 6 9 17 4 12"/></svg>
+                              {{ copiedExpandedToken === inv.token ? 'Copied!' : 'Copy' }}
+                            </button>
+                          </div>
+                        </td>
+                      </tr>
+                    </template>
+                  </tbody>
+                </table>
+              </div>
+            </div> <!-- end invite tab -->
+
+            <!-- ── Audit Log tab ── -->
+            <div v-if="adminTab === 'audit'" class="audit-panel">
+              <div class="audit-toolbar">
+                <div class="audit-filters">
+                  <div class="audit-filter-group">
+                    <select v-model="auditFilter.type" @change="loadAuditLog">
+                      <option value="">All events</option>
+                      <option value="login">Login</option>
+                      <option value="login_failed">Failed login</option>
+                      <option value="test_run">Test run</option>
+                      <option value="test_load_update">Load update</option>
+                      <option value="curl_upload">cURL upload</option>
+                      <option value="user_created">User created</option>
+                      <option value="user_updated">User updated</option>
+                      <option value="user_deleted">User deleted</option>
+                      <option value="invite_created">Invite created</option>
+                      <option value="invite_revoked">Invite revoked</option>
+                      <option value="invite_accepted">Invite accepted</option>
+                      <option value="audit_cleared">Log cleared</option>
+                      <option value="history_cleared">Test history cleared</option>
+                      <option value="reset_link_created">Reset link sent</option>
+                      <option value="password_reset">Password reset</option>
+                    </select>
+                  </div>
+                  <div class="audit-filter-group">
+                    <input v-model="auditFilter.search" @input="debouncedAuditLoad" type="text" placeholder="Search user, IP, test…" class="audit-search" />
+                  </div>
+                </div>
+                <div class="audit-toolbar-actions">
+                  <button class="btn-audit-refresh" @click="loadAuditLog" :disabled="auditLoading" title="Refresh">
+                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" :style="auditLoading ? 'animation: spin .7s linear infinite' : ''"><polyline points="23 4 23 10 17 10"/><path d="M20.49 15a9 9 0 1 1-2.12-9.36L23 10"/></svg>
+                    Refresh
+                  </button>
+                  <button class="btn-audit-download" @click="downloadAuditLog" :disabled="!auditLog.length" title="Download as CSV">
+                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
+                    Download
+                  </button>
+                  <button class="btn-audit-clear" @click="clearAuditLog" :disabled="!auditLog.length" title="Clear all log entries">
+                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"/><path d="M10 11v6"/><path d="M14 11v6"/><path d="M9 6V4h6v2"/></svg>
+                    Clear log
+                  </button>
+                </div>
+              </div>
+
+              <div class="admin-loading" v-if="auditLoading">Loading…</div>
+              <div class="audit-empty" v-else-if="!auditLog.length">No audit events found</div>
+              <template v-else>
+                <div class="audit-feed">
+                  <article
+                    v-for="entry in paginatedAuditLog"
+                    :key="entry.id"
+                    class="audit-card"
+                    :class="{ 'audit-card--expanded': expandedAuditId === entry.id }"
+                  >
+                    <button
+                      type="button"
+                      class="audit-card-main"
+                      @click="toggleAuditExpand(entry.id)"
+                      :aria-expanded="expandedAuditId === entry.id"
+                    >
+                      <div class="audit-card-time">
+                        <span class="audit-date">{{ formatAuditDate(entry.timestamp) }}</span>
+                        <span class="audit-clock">{{ formatAuditTime(entry.timestamp) }}</span>
+                      </div>
+                      <span class="audit-badge" :class="'audit-badge--' + entry.type">
+                        {{ auditTypeLabel(entry.type) }}
+                      </span>
+                      <div class="audit-card-user">
+                        <span class="audit-avatar" v-if="entry.username">{{ entry.username[0].toUpperCase() }}</span>
+                        <div class="audit-user-info">
+                          <span class="audit-username">{{ entry.username || '—' }}</span>
+                          <span v-if="entry.role" class="user-role audit-role-badge" :class="'role-' + entry.role">{{ roleLabels[entry.role] || entry.role }}</span>
+                        </div>
+                      </div>
+                      <span class="audit-card-summary">{{ auditEntrySummary(entry) }}</span>
+                      <span class="audit-card-chevron" aria-hidden="true">
+                        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="6 9 12 15 18 9"/></svg>
+                      </span>
+                    </button>
+
+                    <div class="audit-card-details" v-if="expandedAuditId === entry.id">
+                      <div class="audit-meta-row">
+                        <span class="audit-meta-item" v-if="entry.os">
+                          <span class="audit-os-icon">{{ osIcon(entry.os) }}</span>
+                          {{ entry.os }}<template v-if="entry.browser && entry.browser !== 'Unknown'"> · {{ entry.browser }}</template>
+                        </span>
+                        <span class="audit-meta-item" v-if="entry.ip"><code>{{ entry.ip }}</code></span>
+                      </div>
+                      <div class="audit-detail">
+                        <!-- Test run / cURL upload -->
+                        <template v-if="entry.details?.testName">
+                          <div class="detail-row">
+                            <span class="detail-row-icon" aria-hidden="true">
+                              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="9" y1="15" x2="15" y2="15"/></svg>
+                            </span>
+                            <span class="detail-primary">{{ entry.details.testName }}</span>
+                          </div>
+                          <div class="detail-chips">
+                            <span v-if="entry.details.testType" class="detail-chip detail-chip--type">{{ auditTestTypeLabel(entry.details.testType) }}</span>
+                            <span v-if="entry.details.vus"       class="detail-chip detail-chip--stat">{{ entry.details.vus }} VUs</span>
+                            <span v-if="entry.details.duration"  class="detail-chip detail-chip--stat">{{ entry.details.duration }}</span>
+                            <span v-if="entry.details.stepCount" class="detail-chip detail-chip--stat">{{ entry.details.stepCount }} steps</span>
+                          </div>
+                          <div v-if="entry.details.url" class="detail-url">
+                            <span class="method-badge" :class="auditHttpMethodClass(entry.details.method)">{{ entry.details.method || 'GET' }}</span>
+                            <span class="detail-url-path">{{ entry.details.url }}</span>
+                          </div>
+                        </template>
+
+                        <!-- Load update (ramp up/down) -->
+                        <template v-else-if="entry.type === 'test_load_update' && entry.details">
+                          <div class="detail-row">
+                            <span class="detail-row-icon" aria-hidden="true">
+                              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="23 6 13.5 15.5 8.5 10.5 1 18"/><polyline points="17 6 23 6 23 12"/></svg>
+                            </span>
+                            <span class="detail-primary">{{ entry.details.testId || '—' }}</span>
+                          </div>
+                          <div class="detail-chips">
+                            <span v-if="entry.details.vus != null" class="detail-chip detail-chip--stat">{{ entry.details.vus }} VUs</span>
+                            <span v-if="entry.details.duration" class="detail-chip detail-chip--stat">{{ entry.details.duration }}</span>
+                          </div>
+                        </template>
+
+                        <!-- Pause / resume -->
+                        <template v-else-if="entry.type === 'test_pause' || entry.type === 'test_resume'">
+                          <div class="detail-row">
+                            <span class="detail-row-icon" aria-hidden="true">
+                              <svg v-if="entry.type === 'test_pause'" width="16" height="16" viewBox="0 0 24 24" fill="currentColor"><rect x="5" y="4" width="4" height="16" rx="1"/><rect x="15" y="4" width="4" height="16" rx="1"/></svg>
+                              <svg v-else width="16" height="16" viewBox="0 0 24 24" fill="currentColor"><polygon points="6 4 20 12 6 20 6 4"/></svg>
+                            </span>
+                            <span class="detail-primary">{{ entry.details?.testId || '—' }}</span>
+                          </div>
+                          <div class="detail-chips">
+                            <span class="detail-chip detail-chip--type">{{ entry.type === 'test_pause' ? 'Paused' : 'Resumed' }}</span>
+                          </div>
+                        </template>
+
+                        <!-- History cleared -->
+                        <template v-else-if="entry.type === 'history_cleared' && entry.details">
+                          <div class="detail-row">
+                            <span class="detail-row-icon" aria-hidden="true">
+                              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/></svg>
+                            </span>
+                            <span class="detail-primary">All run history removed</span>
+                          </div>
+                          <div class="detail-chips">
+                            <span v-if="entry.details.deletedCount != null" class="detail-chip detail-chip--stat">{{ entry.details.deletedCount }} entries</span>
+                            <span v-if="entry.details.reportFilesRemoved != null" class="detail-chip detail-chip--stat">{{ entry.details.reportFilesRemoved }} files</span>
+                          </div>
+                        </template>
+
+                        <!-- User created / updated / deleted -->
+                        <template v-else-if="entry.details?.targetUsername">
+                          <div class="detail-row">
+                            <span class="detail-row-icon" aria-hidden="true">
+                              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>
+                            </span>
+                            <span class="detail-primary">{{ entry.details.targetUsername }}</span>
+                          </div>
+                          <div class="detail-chips">
+                            <span v-if="entry.details.targetRole" class="detail-chip detail-chip--role user-role" :class="'role-' + entry.details.targetRole">{{ roleLabels[entry.details.targetRole] || entry.details.targetRole }}</span>
+                          </div>
+                          <div v-if="entry.details.targetEmail" class="detail-email">{{ entry.details.targetEmail }}</div>
+                        </template>
+
+                        <!-- Invite created / revoked / accepted -->
+                        <template v-else-if="entry.details?.targetEmail">
+                          <div class="detail-row">
+                            <span class="detail-row-icon" aria-hidden="true">
+                              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 4h16c1.1 0 2 .9 2 2v12c0 1.1-.9 2-2 2H4c-1.1 0-2-.9-2-2V6c0-1.1.9-2 2-2z"/><polyline points="22,6 12,13 2,6"/></svg>
+                            </span>
+                            <span class="detail-primary">{{ entry.details.targetEmail }}</span>
+                          </div>
+                          <div class="detail-chips">
+                            <span v-if="entry.details.targetRole" class="detail-chip detail-chip--role user-role" :class="'role-' + entry.details.targetRole">{{ roleLabels[entry.details.targetRole] || entry.details.targetRole }}</span>
+                          </div>
+                          <div v-if="entry.details.invitedBy" class="detail-by">via {{ entry.details.invitedBy }}</div>
+                        </template>
+
+                        <span v-else class="audit-detail-empty">No additional details</span>
+                      </div>
+                    </div>
+                  </article>
+                </div>
+
+                <div class="audit-pagination" v-if="auditTotalPages > 1">
+                  <span class="audit-page-info">
+                    {{ auditPageStart }}–{{ auditPageEnd }} of {{ auditLog.length }}
+                  </span>
+                  <div class="audit-page-controls">
+                    <button class="audit-page-btn" @click="auditPrevPage" :disabled="auditPage <= 1" aria-label="Previous page">‹</button>
+                    <span class="audit-page-num">{{ auditPage }} / {{ auditTotalPages }}</span>
+                    <button class="audit-page-btn" @click="auditNextPage" :disabled="auditPage >= auditTotalPages" aria-label="Next page">›</button>
+                  </div>
+                </div>
+              </template>
+            </div> <!-- end audit tab -->
+
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Confirm Dialog -->
+      <div class="confirm-overlay" v-if="confirmDialog.show" @click.self="confirmDialogCancel">
+        <div class="confirm-modal">
+          <div class="confirm-icon" :class="'confirm-icon--' + confirmDialog.confirmStyle">
+            <svg v-if="confirmDialog.confirmStyle === 'danger'" width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"/><path d="M10 11v6"/><path d="M14 11v6"/><path d="M9 6V4a1 1 0 0 1 1-1h4a1 1 0 0 1 1 1v2"/></svg>
+            <svg v-else width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>
+          </div>
+          <div class="confirm-body">
+            <div class="confirm-title">{{ confirmDialog.title }}</div>
+            <div class="confirm-message">{{ confirmDialog.message }}</div>
+          </div>
+          <div class="confirm-actions">
+            <button class="confirm-btn-cancel" @click="confirmDialogCancel">Cancel</button>
+            <button class="confirm-btn-ok" :class="'confirm-btn--' + confirmDialog.confirmStyle" @click="confirmDialogOk">
+              {{ confirmDialog.confirmLabel }}
+            </button>
+          </div>
+        </div>
+      </div>
+
+      <!-- Status strip — compact banner shown while test is running or just completed -->
+      <div class="status-strip" v-show="statusText !== 'Idle'">
+        <div class="status-strip-inner">
+          <div class="status-chip-inline" :class="statusClass">
+            <span class="status-badge"></span>
+            <span>{{ statusText }}</span>
+          </div>
+          <span class="status-strip-sep" v-if="currentTestName">·</span>
+          <span class="status-strip-item" v-if="currentTestName">
+            <Icon name="chart" :size="13" />{{ currentTestName }}
+          </span>
+          <span class="status-strip-sep" v-if="headerRunDuration">·</span>
+          <span class="status-strip-item" v-if="headerRunDuration">
+            <Icon name="clock" :size="13" />{{ headerRunDuration }}
+          </span>
+          <span class="status-strip-sep" v-if="headerRunEndedAt">·</span>
+          <span class="status-strip-item status-strip-ended" v-if="headerRunEndedAt">
+            {{ statusText === 'Paused' ? 'Paused at' : 'Ended' }} {{ headerRunEndedAt }}
+          </span>
+          <template v-if="statusText === 'Paused' && stoppedByUsername && pausedForResume">
+            <span class="status-strip-sep">·</span>
+            <span class="status-strip-item status-strip-runner">
+              <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="8" r="4"/><path d="M4 20c0-4 3.6-7 8-7s8 3 8 7"/></svg>
+              Paused by {{ stoppedByUsername }}
+            </span>
+          </template>
+          <template v-else-if="statusText === 'Stopped' && (stoppedByUsername || startedByUsername)">
+            <span class="status-strip-sep">·</span>
+            <span class="status-strip-item status-strip-runner">
+              <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="8" r="4"/><path d="M4 20c0-4 3.6-7 8-7s8 3 8 7"/></svg>
+              Stopped by {{ stoppedByUsername || startedByUsername }}
+            </span>
+          </template>
+          <template v-else-if="startedByUsername && statusText !== 'Stopped'">
+            <span class="status-strip-sep">·</span>
+            <span class="status-strip-item status-strip-runner">
+              <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="8" r="4"/><path d="M4 20c0-4 3.6-7 8-7s8 3 8 7"/></svg>
+              Started by {{ startedByUsername }}
+            </span>
+          </template>
+        </div>
+      </div>
+
+      <!-- Main Dashboard -->
+      <div class="dashboard" v-show="activeTab === 'dashboard'" :class="{ 'sidebar-hidden': !showConfigPanel || !canSeeConfig }">
+        <!-- Left Sidebar - Configuration -->
+        <aside class="dashboard-sidebar" v-if="showConfigPanel && canSeeConfig">
+          <section class="panel config-panel">
+            <div class="panel-header">
+              <h2>Test Configuration</h2>
+            </div>
+            
+            <div class="panel-body">
+              <p v-if="configLocked" class="config-lock-strip" role="status">
+                <template v-if="canEditLoadWhileRunning">
+                  Scenario and environment are fixed. Set VUs and duration for the next segment, then <span class="config-lock-strip__kbd">Apply</span>.
+                </template>
+                <template v-else>
+                  Scenario, environment, VUs, and duration are locked while this run is active or paused for resume.
+                </template>
+              </p>
+              <div class="form-group">
+                <label for="testSelect">Test Scenario</label>
+                <div class="test-select-with-actions">
+                  <select id="testSelect" v-model="selectedTest" class="form-control" @change="onTestChange" :disabled="configLocked">
+                    <option value="">-- Select a test --</option>
+                    <template v-if="testsByTeam.length > 0">
+                      <optgroup v-for="group in testsByTeam" :key="group.id" :label="group.label">
+                        <option v-for="test in group.tests" :key="test.id" :value="test.id">
+                          {{ test.name }}
+                        </option>
+                      </optgroup>
+                    </template>
+                    <template v-else>
+                      <option disabled>No scenarios yet — create one via cURL Import</option>
+                    </template>
+                  </select>
+                  <button 
+                    v-if="selectedTest && canDeleteTest(selectedTest)"
+                    @click="confirmDeleteTest(selectedTest)" 
+                    class="btn btn-icon-btn btn-delete-test"
+                    title="Delete this test"
+                    type="button"
+                    :disabled="configLocked"
+                  >
+                    <Icon name="trash" :size="18" />
+                  </button>
+                </div>
+                <small v-if="testDescription && !testSteps.length" class="form-text">{{ testDescription }}</small>
+                <div v-if="testSteps.length" class="test-steps-preview">
+                  <div class="test-steps-label">{{ testSteps.length }} step{{ testSteps.length !== 1 ? 's' : '' }}</div>
+                  <div v-for="(step, i) in testSteps" :key="i" class="test-step-item">
+                    <span class="test-step-num">{{ i + 1 }}</span>
+                    <span class="test-step-method" :class="'method-' + step.method.toLowerCase()">{{ step.method }}</span>
+                    <span class="test-step-url" :title="step.url">{{ step.url }}</span>
+                  </div>
+                </div>
+              </div>
+
+              <div class="form-row">
+                <div v-if="!selectedTestIsCurl" class="form-group">
+                  <label for="environment">Environment</label>
+                  <select id="environment" v-model="config.environment" class="form-control" :disabled="configLocked">
+                    <option value="staging">Staging</option>
+                    <option value="production">Production</option>
+                  </select>
+                </div>
+
+                <div class="form-group">
+                  <label for="vus" class="label-with-tip">
+                    Virtual Users
+                    <button type="button" class="vus-tip-icon-btn" @click="showVusTip=!showVusTip" :title="showVusTip ? 'Hide RPS info' : 'Show RPS info'" :disabled="vusDurationLocked">
+                      <Icon name="info" :size="14" />
+                    </button>
+                  </label>
+                  <input type="number" id="vus" v-model.number="config.vus" class="form-control" min="1" :max="userLimits.enabled ? userLimits.maxVus : undefined" :disabled="vusDurationLocked" />
+                  <small v-if="userLimits.enabled" class="form-limit-hint">Limit: max {{ userLimits.maxVus }} VUs</small>
+                </div>
+              </div>
+
+              <!-- RPS info panel — full width, below the 2-col row -->
+              <div class="vus-tip-panel" v-show="showVusTip">
+                <div class="vus-tip-panel-header">
+                  <div class="vus-tip-title">How RPS is calculated</div>
+                  <button type="button" class="vus-tip-close" @click="showVusTip=false">×</button>
+                </div>
+                <div class="vus-tip-formula">RPS = VUs ÷ (response time + sleep)</div>
+                <table class="vus-tip-table">
+                  <thead><tr><th>VUs</th><th>Response</th><th>Sleep</th><th>≈ RPS</th></tr></thead>
+                  <tbody>
+                    <tr><td>{{ config.vus }}</td><td>0.3 s</td><td>1 s</td><td>{{ (config.vus / 1.3).toFixed(1) }}</td></tr>
+                    <tr><td>{{ config.vus }}</td><td>0.5 s</td><td>1 s</td><td>{{ (config.vus / 1.5).toFixed(1) }}</td></tr>
+                    <tr><td>{{ config.vus }}</td><td>1 s</td><td>1 s</td><td>{{ (config.vus / 2.0).toFixed(1) }}</td></tr>
+                  </tbody>
+                </table>
+                <div class="vus-tip-note">💡 More VUs = more RPS</div>
+              </div>
+
+              <div class="form-group">
+                <label for="duration">Duration</label>
+                <input
+                  v-if="!canEditLoadWhileRunning"
+                  type="text"
+                  id="duration"
+                  v-model="config.duration"
+                  class="form-control"
+                  placeholder="5m"
+                  :disabled="vusDurationLocked"
+                />
+                <div v-else class="duration-apply-row">
+                  <input
+                    type="text"
+                    id="duration"
+                    v-model="config.duration"
+                    class="form-control"
+                    placeholder="5m"
+                    :disabled="vusDurationLocked"
+                    autocomplete="off"
+                  />
+                  <button
+                    type="button"
+                    class="btn btn-secondary btn-sm duration-apply-btn"
+                    @click="applyLoadUpdate"
+                    :disabled="isApplyingLoadUpdate"
+                    title="Apply VUs and duration to the next k6 segment (same run; worker restarts)"
+                  >
+                    {{ isApplyingLoadUpdate ? '…' : 'Apply' }}
+                  </button>
+                </div>
+                <small v-if="!canEditLoadWhileRunning" class="form-text">Examples: 30s, 5m, 1h</small>
+                <small v-if="userLimits.enabled" class="form-limit-hint">Limit: max {{ userLimits.maxDurationMinutes }} min</small>
+              </div>
+
+              <div class="config-run-toolbar">
+              <div class="button-group button-group-actions">
+                <button 
+                  v-if="!isRunning && !pausedForResume"
+                  @click="startTest" 
+                  :disabled="!canStart || isLoading" 
+                  class="btn btn-start btn-lg"
+                  :class="{ loading: isLoading && !isStoppingTest && !isPausingTest, pulse: canStart && !isLoading }"
+                  :aria-label="isLoading && !isStoppingTest && !isPausingTest ? 'Starting test...' : 'Start test'"
+                  :aria-busy="isLoading && !isStoppingTest && !isPausingTest"
+                >
+                  <span class="btn-icon-wrapper" v-if="!isLoading || isStoppingTest || isPausingTest">
+                    <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="btn-icon-svg">
+                      <polygon points="5 3 19 12 5 21 5 3"></polygon>
+                    </svg>
+                  </span>
+                  <span class="btn-spinner" v-else>
+                    <svg class="spinner" viewBox="0 0 24 24">
+                      <circle class="spinner-circle" cx="12" cy="12" r="10" stroke-width="3"></circle>
+                    </svg>
+                  </span>
+                  <span class="btn-text">{{ isLoading && !isStoppingTest && !isPausingTest ? 'Starting Test...' : 'Start Test' }}</span>
+                </button>
+                <button
+                  v-if="isRunning && canPause"
+                  type="button"
+                  @click="pauseTest"
+                  :disabled="isPausingTest || isLoading || !canStop"
+                  class="btn btn-pause btn-lg"
+                  :title="!canStop ? 'Only the test starter, a tech-lead, or an admin can pause this test' : 'Pause — remaining duration is preserved'"
+                >
+                  <span class="btn-icon-wrapper" v-if="!isPausingTest">
+                    <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="currentColor" class="btn-icon-svg" aria-hidden="true"><rect x="5" y="4" width="5" height="16" rx="1"></rect><rect x="14" y="4" width="5" height="16" rx="1"></rect></svg>
+                  </span>
+                  <span class="btn-spinner" v-else>
+                    <svg class="spinner" viewBox="0 0 24 24">
+                      <circle class="spinner-circle" cx="12" cy="12" r="10" stroke-width="3"></circle>
+                    </svg>
+                  </span>
+                  <span class="btn-text">{{ isPausingTest ? 'Pausing…' : 'Pause' }}</span>
+                </button>
+                <button
+                  v-if="pausedForResumeActive && canResume"
+                  type="button"
+                  @click="resumeTest"
+                  :disabled="isLoading"
+                  class="btn btn-start btn-lg"
+                  title="Continue the same run with the remaining duration"
+                >
+                  <span class="btn-icon-wrapper" v-if="!isLoading">
+                    <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="btn-icon-svg">
+                      <polygon points="5 3 19 12 5 21 5 3"></polygon>
+                    </svg>
+                  </span>
+                  <span class="btn-spinner" v-else>
+                    <svg class="spinner" viewBox="0 0 24 24">
+                      <circle class="spinner-circle" cx="12" cy="12" r="10" stroke-width="3"></circle>
+                    </svg>
+                  </span>
+                  <span class="btn-text">{{ isLoading ? 'Resuming…' : 'Resume' }}</span>
+                </button>
+                <button 
+                  v-if="isRunning || pausedForResumeActive"
+                  @click="stopTest" 
+                  :disabled="!canStop || isStoppingTest || isLoading" 
+                  class="btn btn-stop btn-lg"
+                  :class="{ active: canStop }"
+                  :title="pausedForResume ? 'Stop — ends this paused session (you cannot resume)' : (!canStop && isRunning ? 'Only the test starter, a tech-lead, or an admin can stop this test' : '')"
+                  :aria-label="isStoppingTest ? 'Stopping test...' : (pausedForResume ? 'Stop paused test' : 'Stop test')"
+                  :aria-busy="isStoppingTest"
+                >
+                  <span class="btn-icon-wrapper" v-if="!isStoppingTest">
+                    <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="currentColor" class="btn-icon-svg" aria-hidden="true">
+                      <rect x="7" y="7" width="10" height="10" rx="1.5"></rect>
+                    </svg>
+                  </span>
+                  <span class="btn-spinner" v-else>
+                    <svg class="spinner" viewBox="0 0 24 24">
+                      <circle class="spinner-circle" cx="12" cy="12" r="10" stroke-width="3"></circle>
+                    </svg>
+                  </span>
+                  <span class="btn-text">{{ isStoppingTest ? 'Stopping Test...' : (pausedForResume ? 'Stop' : 'Stop Test') }}</span>
+                </button>
+              </div>
+              </div>
+            </div>
+          </section>
+        </aside>
+
+        <!-- Main Content Area -->
+        <main class="dashboard-main">
+          <!-- Progress Bar -->
+          <div class="panel progress-panel" v-if="isRunning || pausedForResumeActive">
+            <div class="progress-container">
+              <div class="progress-bar-wrapper">
+                <div class="progress-bar-fill" :style="{ width: progress + '%' }"></div>
+              </div>
+              <div class="progress-info" :class="{ 'progress-info--paused': pausedForResumeActive }">
+                <span class="progress-percentage">{{ progress }}% complete</span>
+                <div
+                  v-if="pausedForResumeActive && resumeRemainingLabel && plannedTotalLabel"
+                  class="progress-pause-card"
+                  role="status"
+                  aria-live="polite"
+                  :aria-label="pauseTimingAriaLabel"
+                >
+                  <div class="progress-pause-simple-row">
+                    <span class="progress-pause-simple-label">Finished before pause</span>
+                    <span class="progress-pause-simple-value">
+                      {{ pausedActiveElapsedLabel }}<span class="progress-pause-simple-sep" aria-hidden="true"> / </span>{{ plannedTotalLabel }}
+                    </span>
+                  </div>
+                  <div class="progress-pause-simple-row progress-pause-simple-row--resume">
+                    <span class="progress-pause-simple-label">Runs after Resume</span>
+                    <span class="progress-pause-simple-value progress-pause-simple-value--accent">{{ resumeRemainingLabel }}</span>
+                  </div>
+                </div>
+                <span v-else-if="pausedForResumeActive && resumeRemainingLabel" class="progress-time">
+                  Continues with <strong>{{ resumeRemainingLabel }}</strong>
+                  <template v-if="plannedTotalLabel"> · configured length {{ plannedTotalLabel }}</template>
+                </span>
+                <span v-else class="progress-time">
+                  <template v-if="plannedTotalLabel && isRunning">
+                    <span class="progress-time-label">Elapsed</span>
+                    <span class="progress-time-value progress-time-value--inline">{{ elapsedTime }}</span>
+                    <span class="progress-time-sep">/</span>
+                    <span class="progress-time-value progress-time-value--inline">{{ plannedTotalLabel }}</span>
+                    <span class="progress-time-suffix">total run</span>
+                  </template>
+                  <template v-else>{{ elapsedTime }}</template>
+                </span>
+              </div>
+            </div>
+          </div>
+
+          <!-- Real-time Metrics -->
+          <section class="panel metrics-panel" v-if="isRunning || testCompleted || pausedForResume">
+            <div class="panel-header">
+              <h2>Real-time Metrics</h2>
+            </div>
+            <div class="metrics-grid">
+              <div class="metric-card" v-for="metric in metrics" :key="metric.key">
+                <div class="metric-icon">
+                  <Icon :name="metric.icon" :size="32" :stroke-width="2" />
+                </div>
+                <div class="metric-content">
+                  <div class="metric-label">{{ metric.label }}</div>
+                  <div class="metric-value">{{ metric.value }}</div>
+                </div>
+              </div>
+            </div>
+            
+            <!-- Real-time Charts -->
+            <div class="charts-section">
+              <div class="chart-container">
+                <div class="chart-header">
+                  <h3>Requests per Second</h3>
+                  <span class="chart-subtitle">Live throughput · hover for values</span>
+                </div>
+                <canvas id="requestsChart" class="chart-canvas"></canvas>
+              </div>
+              
+              <div class="chart-container">
+                <div class="chart-header">
+                  <h3>Response Time</h3>
+                  <span class="chart-subtitle">Average latency (ms) · hover for values</span>
+                </div>
+                <canvas id="responseTimeChart" class="chart-canvas"></canvas>
+              </div>
+            </div>
+            
+            <!-- Detailed Statistics Table -->
+            <div class="statistics-table-section">
+              <div class="table-header">
+                <h3>Request Statistics</h3>
+              </div>
+              <div class="statistics-table-wrapper">
+                <table class="statistics-table">
+                  <thead>
+                    <tr>
+                      <th>Name</th>
+                      <th>Type</th>
+                      <th>Requests</th>
+                      <th>Failures</th>
+                      <th>Median</th>
+                      <th>95%ile</th>
+                      <th>99%ile</th>
+                      <th>Avg</th>
+                      <th>Min</th>
+                      <th>Max</th>
+                      <th>RPS</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    <tr v-for="stat in requestStats" :key="stat.name" :class="{ 'stat-row-total': stat.isTotal, 'stat-row-url': !stat.isTotal }">
+                      <td class="stat-name">
+                        <span v-if="stat.isTotal" class="stat-total-badge">Total</span>
+                        <span v-else class="stat-url-name">{{ stat.name }}</span>
+                      </td>
+                      <td class="stat-type">{{ stat.type }}</td>
+                      <td class="stat-value">{{ stat.requests }}</td>
+                      <td class="stat-value" :class="{ 'error': stat.failures > 0 }">{{ stat.failures }}</td>
+                      <td class="stat-value">{{ stat.median }}ms</td>
+                      <td class="stat-value">{{ stat.p95 }}ms</td>
+                      <td class="stat-value">{{ stat.p99 }}ms</td>
+                      <td class="stat-value">{{ stat.avg }}ms</td>
+                      <td class="stat-value">{{ stat.min }}ms</td>
+                      <td class="stat-value">{{ stat.max }}ms</td>
+                      <td class="stat-value">{{ stat.rps }}</td>
+                    </tr>
+                    <tr v-if="requestStats.length === 0">
+                      <td colspan="11" class="empty-table">No statistics available yet</td>
+                    </tr>
+                  </tbody>
+                </table>
+              </div>
+            </div>
+            
+            <!-- Failure Details -->
+            <div class="failure-details-section" v-if="hasFailureDetails">
+              <div class="failure-details-header">
+                <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                  <circle cx="12" cy="12" r="10"></circle>
+                  <line x1="12" y1="8" x2="12" y2="12"></line>
+                  <line x1="12" y1="16" x2="12.01" y2="16"></line>
+                </svg>
+                <h3>Failure Details</h3>
+              </div>
+              <div class="failure-details-body">
+                <div v-for="(statuses, urlName) in failureDetails" :key="urlName" class="failure-url-block">
+                  <div class="failure-url-title">
+                    <span class="failure-url-dot"></span>
+                    {{ urlName === '__total__' ? 'Total' : urlName }}
+                  </div>
+                  <div class="failure-status-rows">
+                    <div v-for="(info, status) in statuses" :key="status" class="failure-status-row">
+                      <div class="failure-status-row-top">
+                        <span class="failure-status-badge" :class="statusCodeClass(status)">{{ status !== '0' ? status : 'ERR' }}</span>
+                        <span v-if="info.method" class="failure-method-badge" :class="'method-' + info.method.toLowerCase()">{{ info.method }}</span>
+                        <span class="failure-count">× {{ info.count }}</span>
+                        <span v-if="info.errorCode" class="failure-error-code">code {{ info.errorCode }}</span>
+                      </div>
+                      <div v-if="info.endpoints.length > 0" class="failure-endpoint" v-for="ep in info.endpoints" :key="ep" :title="ep">
+                        <svg xmlns="http://www.w3.org/2000/svg" width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"/><path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"/></svg>
+                        {{ ep }}
+                      </div>
+                      <div v-if="info.errors.length > 0" class="failure-errors">
+                        <svg xmlns="http://www.w3.org/2000/svg" width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>
+                        {{ info.errors.join(' · ') }}
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            <!-- Response Time Distribution -->
+            <div class="distribution-section">
+              <div class="distribution-header">
+                <h3>Response Time Distribution</h3>
+              </div>
+              <div class="distribution-chart">
+                <canvas id="distributionChart" class="chart-canvas"></canvas>
+              </div>
+            </div>
+          </section>
+
+          <!-- Test Output -->
+          <section class="panel output-panel">
+            <div class="panel-header">
+              <div class="panel-header-content">
+                <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="panel-header-icon">
+                  <polyline points="4 17 10 11 4 5"></polyline>
+                  <line x1="12" y1="19" x2="20" y2="19"></line>
+                </svg>
+                <h2>Test Output</h2>
+                <span class="output-line-count" v-if="outputLines.length > 0">{{ outputLines.length }} lines</span>
+              </div>
+              <div class="panel-actions">
+                <button 
+                  @click="copyOutput" 
+                  class="btn btn-icon-action" 
+                  :disabled="outputLines.length === 0"
+                  title="Copy output to clipboard"
+                  aria-label="Copy output to clipboard"
+                >
+                  <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                    <rect x="9" y="9" width="13" height="13" rx="2" ry="2"></rect>
+                    <path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"></path>
+                  </svg>
+                </button>
+                <button 
+                  @click="clearOutput" 
+                  class="btn btn-icon-action btn-icon-danger" 
+                  :disabled="outputLines.length === 0"
+                  title="Clear output"
+                  aria-label="Clear output"
+                >
+                  <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                    <polyline points="3 6 5 6 21 6"></polyline>
+                    <path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path>
+                  </svg>
+                </button>
+                <button 
+                  @click="toggleAutoScroll" 
+                  class="btn btn-icon-action" 
+                  :class="{ active: autoScroll }"
+                  :title="autoScroll ? 'Disable auto-scroll' : 'Enable auto-scroll'"
+                  :aria-label="autoScroll ? 'Disable auto-scroll' : 'Enable auto-scroll'"
+                  :aria-pressed="autoScroll"
+                >
+                  <svg v-if="autoScroll" xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                    <polyline points="6 9 12 15 18 9"></polyline>
+                  </svg>
+                  <svg v-else xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                    <polyline points="18 15 12 9 6 15"></polyline>
+                  </svg>
+                </button>
+              </div>
+            </div>
+            <div class="output-display" ref="outputDisplay">
+              <div v-if="outputLines.length > maxVisibleOutputLines" class="output-truncated">
+                <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                  <circle cx="12" cy="12" r="10"></circle>
+                  <line x1="12" y1="16" x2="12" y2="12"></line>
+                  <line x1="12" y1="8" x2="12.01" y2="8"></line>
+                </svg>
+                <span>Showing last {{ maxVisibleOutputLines }} of {{ outputLines.length }} lines</span>
+              </div>
+              <div 
+                v-for="(line, index) in visibleOutputLines" 
+                :key="`${outputLines.length - visibleOutputLines.length + index}`" 
+                :class="['output-line', line.type]"
+              >
+                <span class="output-line-prefix">›</span>
+                <span class="output-line-text">{{ line.text }}</span>
+              </div>
+              <div v-if="outputLines.length === 0" class="output-empty">
+                <div class="output-empty-icon">
+                  <svg xmlns="http://www.w3.org/2000/svg" width="64" height="64" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
+                    <polyline points="4 17 10 11 4 5"></polyline>
+                    <line x1="12" y1="19" x2="20" y2="19"></line>
+                  </svg>
+                </div>
+                <div class="output-empty-content">
+                  <h3 class="output-empty-title">No test output yet</h3>
+                  <p class="output-empty-message">Start a test from the configuration panel to see real-time output and logs here.</p>
+                  <div class="output-empty-hint" v-if="!canStart">
+                    <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                      <circle cx="12" cy="12" r="10"></circle>
+                      <path d="M12 16v-4"></path>
+                      <path d="M12 8h.01"></path>
+                    </svg>
+                    <span>Select a test scenario to begin</span>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </section>
+
+          <!-- Test History -->
+          <section class="panel history-panel">
+            <div class="panel-header history-panel__header">
+              <h2 class="history-panel__title">Test History</h2>
+              <div class="history-panel__toolbar" role="toolbar" aria-label="Test history">
+                <div class="history-panel__filter">
+                  <label for="history-status-filter" class="sr-only">Filter runs by status</label>
+                  <select
+                    id="history-status-filter"
+                    v-model="historyFilter"
+                    class="form-control form-control-sm history-panel__select"
+                  >
+                    <option value="all">All Tests</option>
+                    <option value="completed">Completed</option>
+                    <option value="failed">Failed</option>
+                    <option value="paused">Paused</option>
+                    <option value="stopped">Stopped</option>
+                  </select>
+                </div>
+                <div class="history-panel__actions">
+                  <button
+                    type="button"
+                    @click="loadHistory"
+                    class="btn btn-icon-btn history-panel__icon-btn"
+                    title="Refresh"
+                    aria-label="Refresh history"
+                  >
+                    <Icon name="refresh" :size="18" />
+                  </button>
+                  <button
+                    v-if="authUser && authUser.role === 'admin'"
+                    type="button"
+                    class="btn history-panel__clear-all"
+                    :disabled="!testHistory.length"
+                    title="Remove every entry and delete stored result files"
+                    @click="deleteAllTestHistory"
+                  >
+                    Clear all
+                  </button>
+                </div>
+              </div>
+            </div>
+            <div class="history-list">
+              <div 
+                v-for="test in filteredHistory" 
+                :key="test.id"
+                class="history-item"
+                :class="test.status"
+              >
+                <div class="history-item-content" @click="viewTestResults(test.id)">
+                  <div class="history-item-header">
+                    <span class="history-test-name">{{ test.testId }}</span>
+                    <div class="history-header-badges">
+                      <span v-if="test.environment" :class="['history-env-badge', 'history-env-' + test.environment]">
+                        {{ test.environment }}
+                      </span>
+                      <span :class="['history-status', test.status]">{{ test.status }}</span>
+                    </div>
+                  </div>
+                  <div class="history-item-meta">
+                    <span>Started: {{ formatDate(test.startTime) }}</span>
+                    <span v-if="test.endTime">Ended: {{ formatDate(test.endTime) }}</span>
+                    <span
+                      v-if="test.duration"
+                      :title="historyDurationTooltip(test)"
+                    >Duration: {{ test.duration }}</span>
+                    <span v-if="test.startedByUsername" class="history-runner">
+                      <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="8" r="4"/><path d="M4 20c0-4 3.6-7 8-7s8 3 8 7"/></svg>
+                      {{ test.startedByUsername }}
+                    </span>
+                  </div>
+                </div>
+                <div class="history-item-actions" @click.stop>
+                  <button 
+                    @click="viewTestResults(test.id)"
+                    class="btn btn-icon-btn btn-icon-view"
+                    title="View test results"
+                    aria-label="View test results"
+                  >
+                    <Icon name="document" :size="16" />
+                  </button>
+                  <button 
+                    @click="deleteTestHistory(test.id)"
+                    class="btn btn-icon-btn btn-icon-delete"
+                    title="Delete test history"
+                    aria-label="Delete test history"
+                  >
+                    <Icon name="trash" :size="16" />
+                  </button>
+                </div>
+              </div>
+              <div v-if="filteredHistory.length === 0" class="empty-state">
+                <div class="empty-state-icon">
+                  <Icon name="document" :size="64" :stroke-width="1.5" />
+                </div>
+                <div class="empty-state-content">
+                  <h3 class="empty-state-title">No test history</h3>
+                  <p class="empty-state-message">Completed tests will appear here. Run your first test to get started.</p>
+                </div>
+              </div>
+            </div>
+          </section>
+        </main>
+      </div>
+
+      <!-- cURL Import Tab -->
+      <div class="curl-import-container" v-show="activeTab === 'curl-import' && showCurlImportTab">
+        <div class="curl-import-panel panel">
+          <div
+            v-if="canSeeCurl && !canSeeScenarios"
+            class="curl-dash-back-banner"
+            role="navigation"
+            aria-label="Return to main dashboard"
+          >
+            <button
+              type="button"
+              class="curl-dash-back-banner__btn"
+              @click="backToDashboardFromCurl"
+              title="Open the main dashboard with metrics, charts, and test output"
+            >
+              <Icon name="arrow-left" :size="18" />
+              <span class="curl-dash-back-banner__label">Back to main dashboard</span>
+            </button>
+            <p class="curl-dash-back-banner__hint">View charts, request stats, and output from the latest run.</p>
+          </div>
+          <div class="panel-header">
+            <h2>Import cURL Request</h2>
+            <div class="panel-actions">
+              <button 
+                @click="clearCurlInput" 
+                class="btn btn-icon-btn" 
+                title="Clear all"
+                aria-label="Clear all curl steps"
+                :disabled="curlSteps.length === 1 && !curlSteps[0].curlCommand && !curlTestName"
+              >
+                <Icon name="trash" :size="18" />
+              </button>
+            </div>
+          </div>
+          <div class="panel-body">
+            <div class="curl-import-content">
+
+              <!-- Info box -->
+              <div class="curl-info-box">
+                <div class="info-icon"><Icon name="info" :size="20" /></div>
+                <div class="info-content">
+                  <h3>cURL Import</h3>
+                  <p>Paste one or more cURL commands to build a load test scenario. Works for a <strong>single API</strong> or a <strong>multi-step chain</strong> — add as many steps as you need. Use <strong>Extract Variable</strong> on any step (e.g. get a token) and reference it as <code>{{varName}}</code> in any later step's URL or headers.</p>
+                </div>
+              </div>
+
+              <!-- Step cards -->
+              <div class="curl-steps-list">
+                <div 
+                  v-for="(step, index) in curlSteps" 
+                  :key="step.id" 
+                  :class="['curl-step-card', step.parsedCurl ? 'is-parsed' : '']"
+                >
+                  <!-- Step header -->
+                  <div class="curl-step-header">
+                    <div class="curl-step-badge">{{ index + 1 }}</div>
+                    <input
+                      type="text"
+                      v-model="step.label"
+                      class="form-control curl-step-label"
+                      :placeholder="`Step ${index + 1} label (e.g. Get Token)`"
+                    />
+                    <span v-if="step.parsedCurl" class="step-parsed-pill">
+                      <Icon name="check-circle" :size="13" /> Parsed
+                    </span>
+                    <button
+                      v-if="curlSteps.length > 1"
+                      @click="removeCurlStep(step.id)"
+                      class="btn btn-icon-btn curl-step-remove"
+                      title="Remove step"
+                    >
+                      <Icon name="trash" :size="15" />
+                    </button>
+                  </div>
+
+                  <!-- cURL textarea -->
+                  <div class="curl-textarea-wrap">
+                    <div class="curl-textarea-label-row">
+                      <label class="curl-textarea-label">cURL Command</label>
+                      <span v-if="index > 0" class="curl-var-tip">
+                        <Icon name="info" :size="13" />
+                        Use <code v-pre>{{varName}}</code> to inject a variable from a previous step
+                      </span>
+                    </div>
+                    <textarea
+                      v-model="step.curlCommand"
+                      class="form-control curl-textarea"
+                      placeholder="Paste your cURL command here..."
+                      rows="5"
+                    ></textarea>
+                  </div>
+
+                  <!-- Parse action — required before create/run -->
+                  <div
+                    class="curl-parse-bar"
+                    :class="{
+                      'curl-parse-bar--needed': step.curlCommand && !step.parsedCurl,
+                      'curl-parse-bar--done': step.parsedCurl
+                    }"
+                  >
+                    <div class="curl-parse-copy">
+                      <p class="curl-parse-title">
+                        <template v-if="step.parsedCurl">Request validated</template>
+                        <template v-else>Validate this request</template>
+                      </p>
+                      <p class="curl-parse-hint">
+                        <template v-if="step.parsedCurl">
+                          Method, URL, headers, and body are ready. Re-validate if you edit the cURL.
+                        </template>
+                        <template v-else>
+                          Required next step — extract method, URL, headers &amp; body before creating the test.
+                        </template>
+                      </p>
+                    </div>
+                    <button
+                      type="button"
+                      @click="parseCurlStep(step.id)"
+                      :disabled="!step.curlCommand || isLoading"
+                      :class="[
+                        'btn',
+                        'curl-parse-btn',
+                        step.parsedCurl ? 'curl-parse-btn--reparsed' : 'curl-parse-btn--primary'
+                      ]"
+                    >
+                      <Icon :name="step.parsedCurl ? 'refresh' : 'check-circle'" :size="16" />
+                      <span class="btn-text">{{ step.parsedCurl ? 'Re-validate' : 'Validate & extract' }}</span>
+                    </button>
+                  </div>
+
+                  <!-- Parsed preview — always show headers & body so nothing is hidden -->
+                  <div v-if="step.parsedCurl" class="parsed-result-block">
+                    <div class="parsed-endpoint-row">
+                      <span class="method-badge" :class="{
+                        'method-get': step.parsedCurl.method === 'GET',
+                        'method-post': step.parsedCurl.method === 'POST',
+                        'method-put': step.parsedCurl.method === 'PUT' || step.parsedCurl.method === 'PATCH',
+                        'method-delete': step.parsedCurl.method === 'DELETE'
+                      }">{{ step.parsedCurl.method }}</span>
+                      <code class="url-code parsed-url-code" :title="step.parsedCurl.url">{{ step.parsedCurl.url }}</code>
+                    </div>
+
+                    <div class="parsed-section">
+                      <div class="parsed-section-header">
+                        <span class="parsed-section-title">Headers</span>
+                        <span class="parsed-count">{{ Object.keys(step.parsedCurl.headers || {}).length }}</span>
+                      </div>
+                      <div
+                        v-if="step.parsedCurl.headers && Object.keys(step.parsedCurl.headers).length > 0"
+                        class="parsed-headers-grid"
+                      >
+                        <template v-for="(value, key) in step.parsedCurl.headers" :key="key">
+                          <span class="parsed-header-key">{{ key }}</span>
+                          <span class="parsed-header-val" :title="value">{{ value }}</span>
+                        </template>
+                      </div>
+                      <p v-else class="parsed-empty">No headers in this cURL — add <code>-H 'Header: value'</code> and re-parse.</p>
+                    </div>
+
+                    <div class="parsed-section">
+                      <div class="parsed-section-header">
+                        <span class="parsed-section-title">Body</span>
+                        <span v-if="step.parsedCurl.body" class="parsed-section-meta">JSON</span>
+                      </div>
+                      <pre v-if="step.parsedCurl.body" class="body-preview">{{ step.parsedCurl.body }}</pre>
+                      <p v-else class="parsed-empty">No body in this cURL — add <code>--data '{ ... }'</code> and re-parse.</p>
+                    </div>
+                  </div>
+
+                  <!-- Extract variable section -->
+                  <div v-if="step.parsedCurl" class="curl-extract-section">
+                    <label class="extract-toggle">
+                      <span class="extract-toggle-track" :class="{ active: step.extractVars }" @click="step.extractVars = !step.extractVars">
+                        <span class="extract-toggle-thumb"></span>
+                      </span>
+                      <span class="extract-toggle-label">Extract variable from response</span>
+                    </label>
+
+                    <div v-if="step.extractVars" class="curl-extract-fields">
+                      <div class="form-row">
+                        <div class="form-group">
+                          <label>Variable name</label>
+                          <input
+                            type="text"
+                            v-model="step.varName"
+                            class="form-control"
+                            placeholder="token"
+                          />
+                          <small class="form-text">Reference as <code v-pre>{{</code><code>{{ step.varName || 'varName' }}</code><code v-pre>}}</code> in later steps</small>
+                        </div>
+                        <div class="form-group">
+                          <label>JSON path in response</label>
+                          <input
+                            type="text"
+                            v-model="step.varPath"
+                            class="form-control"
+                            placeholder="data.access_token"
+                          />
+                          <small class="form-text">Dot-notation, e.g. <code>access_token</code> or <code>data.token</code></small>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+
+                </div><!-- /step card -->
+              </div>
+
+              <!-- Add step button -->
+              <button @click="addCurlStep" class="btn btn-secondary btn-add-step">
+                <Icon name="plus" :size="16" />
+                <span>Add Step</span>
+              </button>
+
+              <!-- Test settings -->
+              <div class="curl-settings-section">
+                <div class="form-row">
+                  <div class="form-group" style="flex: 2;">
+                    <label for="curlTestName">Scenario Name</label>
+                    <div class="input-with-button">
+                      <input 
+                        type="text" 
+                        id="curlTestName" 
+                        v-model="curlTestName" 
+                        @input="validateTestName"
+                        @blur="sanitizeTestName"
+                        class="form-control" 
+                        :class="{ 'input-error': !testNameValid && curlTestName }"
+                        placeholder="my-api-scenario"
+                      />
+                      <button 
+                        @click="sanitizeTestName" 
+                        class="btn btn-icon-btn sanitize-btn"
+                        title="Auto-format name"
+                        type="button"
+                      >
+                        <Icon name="check-circle" :size="18" />
+                      </button>
+                    </div>
+                    <small v-if="!testNameValid && curlTestName" class="form-text error-text">{{ testNameError }}</small>
+                    <small v-else class="form-text">Lowercase letters, numbers, and hyphens only.</small>
+                  </div>
+
+                  <div class="form-group" style="flex: 1;">
+                    <label for="curlTeam">Team</label>
+                    <div class="team-select-row">
+                      <button
+                        v-for="t in teams"
+                        :key="t.id"
+                        type="button"
+                        :class="['btn', 'team-chip', curlTeam === t.id ? 'team-chip--active team-chip--' + t.id : '']"
+                        @click="curlTeam = curlTeam === t.id ? '' : t.id"
+                      >{{ t.label }}</button>
+                    </div>
+                    <small class="form-text">Optional — used to group scenarios in the dashboard.</small>
+                  </div>
+                </div>
+
+                <div class="form-row">
+                  <div class="form-group">
+                    <label for="curlVus" class="label-with-tip">
+                      Virtual Users
+                      <button type="button" class="vus-tip-icon-btn" @click="showCurlVusTip=!showCurlVusTip" :title="showCurlVusTip ? 'Hide RPS info' : 'Show RPS info'">
+                        <Icon name="info" :size="14" />
+                      </button>
+                    </label>
+                    <input type="number" id="curlVus" v-model.number="curlVus" class="form-control" min="1" :max="userLimits.enabled ? userLimits.maxVus : undefined" />
+                    <small v-if="userLimits.enabled" class="form-limit-hint">Limit: max {{ userLimits.maxVus }} VUs</small>
+                  </div>
+                  <div class="form-group">
+                    <label for="curlDuration">Duration</label>
+                    <input type="text" id="curlDuration" v-model="curlDuration" class="form-control" placeholder="5m" />
+                    <small class="form-text">Examples: 30s, 5m, 1h</small>
+                    <small v-if="userLimits.enabled" class="form-limit-hint">Limit: max {{ userLimits.maxDurationMinutes }} min</small>
+                  </div>
+                </div>
+
+                <div class="curl-debug-section">
+                  <label class="extract-toggle" style="margin-bottom: 0;">
+                    <span
+                      class="extract-toggle-track"
+                      :class="{ active: curlDebugLog }"
+                      @click="curlDebugLog = !curlDebugLog"
+                      role="switch"
+                      :aria-checked="curlDebugLog"
+                    >
+                      <span class="extract-toggle-thumb"></span>
+                    </span>
+                    <span class="extract-toggle-label">Log request / response (debug)</span>
+                  </label>
+                  <small class="form-text curl-debug-hint">
+                    Prints each step’s method, URL, status, and truncated body in the test output —
+                    only for VU&nbsp;1 on the first iteration (no load impact). May include tokens or PII.
+                  </small>
+                </div>
+
+                <!-- RPS info panel — full width, below the 2-col row -->
+                <div class="vus-tip-panel" v-show="showCurlVusTip">
+                  <div class="vus-tip-panel-header">
+                    <div class="vus-tip-title">How RPS is calculated</div>
+                    <button type="button" class="vus-tip-close" @click="showCurlVusTip=false">×</button>
+                  </div>
+                  <div class="vus-tip-formula">RPS = VUs ÷ (response time + sleep)</div>
+                  <table class="vus-tip-table">
+                    <thead><tr><th>VUs</th><th>Response</th><th>Sleep</th><th>≈ RPS</th></tr></thead>
+                    <tbody>
+                      <tr><td>{{ curlVus }}</td><td>0.3 s</td><td>1 s</td><td>{{ (curlVus / 1.3).toFixed(1) }}</td></tr>
+                      <tr><td>{{ curlVus }}</td><td>0.5 s</td><td>1 s</td><td>{{ (curlVus / 1.5).toFixed(1) }}</td></tr>
+                      <tr><td>{{ curlVus }}</td><td>1 s</td><td>1 s</td><td>{{ (curlVus / 2.0).toFixed(1) }}</td></tr>
+                    </tbody>
+                  </table>
+                  <div class="vus-tip-note">💡 More VUs = more RPS</div>
+                </div>
+              </div>
+
+              <!-- Create & Run -->
+              <div class="button-group">
+                <button 
+                  @click="createCurlChainTest" 
+                  :disabled="curlSteps.every(s => !s.parsedCurl) || isLoading || isRunning || blockedByOthersPreparing" 
+                  class="btn btn-primary btn-lg"
+                  :class="{ loading: isLoading }"
+                  :title="isRunning ? 'A test is already running' : blockedByOthersPreparing ? (preparingUser.username + ' is preparing a test') : ''"
+                >
+                  <span class="btn-icon" v-if="!isLoading"><Icon name="play" :size="18" /></span>
+                  <span class="btn-spinner" v-else></span>
+                  <span class="btn-text">{{ isLoading ? 'Creating...' : 'Create & Run Test' }}</span>
+                </button>
+              </div>
+
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Test Results Modal -->
+    <transition name="modal">
+      <div v-if="showModal" class="modal" @click.self="closeModal">
+        <div class="modal-content">
+          <div class="modal-header">
+            <h2>Test Results</h2>
+            <button @click="closeModal" class="modal-close" aria-label="Close modal">&times;</button>
+          </div>
+          <div class="modal-body">
+            <div v-if="modalLoading" class="loading">Loading results...</div>
+            <div v-else-if="testResults" class="results-content">
+              <div class="results-summary">
+                <div class="results-summary-item" v-for="(value, key) in resultsSummary" :key="key">
+                  <div class="results-summary-label">{{ key }}</div>
+                  <div class="results-summary-value">{{ value }}</div>
+                </div>
+              </div>
+              <details>
+                <summary>View Full JSON Results</summary>
+                <pre class="results-json">{{ JSON.stringify(testResults, null, 2) }}</pre>
+              </details>
+            </div>
+          </div>
+          <div class="modal-footer">
+            <button @click="exportResults" class="btn btn-secondary">
+              <Icon name="code" :size="18" />
+              <span>Export JSON</span>
+            </button>
+            <button @click="exportHTMLReport" class="btn btn-secondary">
+              <Icon name="download" :size="18" />
+              <span>Export HTML Report</span>
+            </button>
+            <button @click="closeModal" class="btn btn-primary">Close</button>
+          </div>
+        </div>
+      </div>
+    </transition>
+
+    <!-- Confirmation Modal (e.g. Stop Test) — custom layout; do not reuse modal-header/body/footer -->
+    <transition name="modal">
+      <div v-if="showConfirmModal" class="modal modal--confirm-sheet" @click.self="cancelConfirm">
+        <div
+          class="confirm-dialog-modal"
+          role="alertdialog"
+          aria-modal="true"
+          aria-labelledby="confirm-dialog-title"
+        >
+          <button type="button" class="confirm-dialog-close" @click="cancelConfirm" aria-label="Close dialog">
+            <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><path d="M18 6L6 18M6 6l12 12"/></svg>
+          </button>
+          <div class="confirm-dialog-main">
+            <div class="confirm-dialog-text">
+              <h2 id="confirm-dialog-title" class="confirm-dialog-title">{{ confirmTitle || 'Confirm' }}</h2>
+              <p class="confirm-dialog-desc">{{ confirmMessage }}</p>
+            </div>
+          </div>
+          <div class="confirm-dialog-footer">
+            <div class="confirm-dialog-actions">
+              <button type="button" class="confirm-dialog-btn confirm-dialog-btn--secondary" @click="cancelConfirm">Cancel</button>
+              <button type="button" class="confirm-dialog-btn confirm-dialog-btn--danger" @click="confirmAction">{{ confirmPrimaryLabel }}</button>
+            </div>
+          </div>
+        </div>
+      </div>
+    </transition>
+  </div>
+
+  <!-- UI_SCRIPTS_START -->
+  <!-- External module only — inline scripts are blocked by CSP (no unsafe-inline). -->
+  <script type="module" src="./curlParser.js"></script>
+  <script src="modules/apiClient.js"></script>
+  <script src="modules/icon.js"></script>
+  <script defer src="app.js"></script>
+  <!-- UI_SCRIPTS_END -->
+</body>
+</html>

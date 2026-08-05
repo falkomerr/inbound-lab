@@ -1,0 +1,22 @@
+[Unit]
+Description=Load Test Platform (k6 UI)
+After=network-online.target
+Wants=network-online.target
+# Readiness: GET /api/health (no auth) — use for monitoring / load balancers
+
+[Service]
+Type=simple
+User=loadtest
+Group=loadtest
+WorkingDirectory=/opt/load-test-platform
+EnvironmentFile=/opt/load-test-platform/.env
+ExecStart=/usr/bin/node server/index.js
+# Wait until the API health endpoint responds (curl installed by deploy/install-vm.sh)
+ExecStartPost=/bin/bash -c 'PORT=${UI_PORT:-3001}; for i in $(seq 1 30); do curl -sf "http://127.0.0.1:${PORT}/api/health" >/dev/null && exit 0; sleep 1; done; echo "health check failed on port ${PORT}" >&2; exit 1'
+Restart=on-failure
+RestartSec=5
+# k6 + Node can use significant memory during large runs
+LimitNOFILE=65535
+
+[Install]
+WantedBy=multi-user.target

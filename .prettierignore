@@ -1,0 +1,11 @@
+node_modules/
+reports/
+logs/
+data/
+test-results/
+coverage/
+package-lock.json
+public/index.html
+public/login.html
+public/invite.html
+public/reset.html

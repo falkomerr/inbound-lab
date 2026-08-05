@@ -1,0 +1,780 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Sign In — Load Test Platform</title>
+    <link rel="icon" type="image/svg+xml" href="assets/logo.svg" />
+    <style>
+      *,
+      *::before,
+      *::after {
+        box-sizing: border-box;
+        margin: 0;
+        padding: 0;
+      }
+
+      :root {
+        --primary: #4f6ef7;
+        --primary-dk: #3a57e8;
+        --accent: #7c3aed;
+        --text: #0f172a;
+        --text-muted: #64748b;
+        --border: #e2e8f0;
+        --error: #dc2626;
+        --radius: 12px;
+      }
+
+      html,
+      body {
+        height: 100%;
+        font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Inter', sans-serif;
+        background: #f8fafc;
+        color: var(--text);
+      }
+
+      /* ── Layout ──────────────────────────────────────────── */
+      .page {
+        display: grid;
+        grid-template-columns: 1fr 1fr;
+        min-height: 100vh;
+      }
+
+      /* ── Left brand panel ────────────────────────────────── */
+      .brand-panel {
+        position: relative;
+        background: linear-gradient(155deg, #0f172a 0%, #1e1b4b 45%, #312e81 100%);
+        display: flex;
+        flex-direction: column;
+        justify-content: space-between;
+        padding: 48px 52px;
+        overflow: hidden;
+      }
+
+      /* Decorative blobs */
+      .brand-panel::before {
+        content: '';
+        position: absolute;
+        top: -80px;
+        right: -80px;
+        width: 380px;
+        height: 380px;
+        border-radius: 50%;
+        background: radial-gradient(circle, rgba(99, 102, 241, 0.35) 0%, transparent 70%);
+        pointer-events: none;
+      }
+      .brand-panel::after {
+        content: '';
+        position: absolute;
+        bottom: -60px;
+        left: -60px;
+        width: 320px;
+        height: 320px;
+        border-radius: 50%;
+        background: radial-gradient(circle, rgba(124, 58, 237, 0.3) 0%, transparent 70%);
+        pointer-events: none;
+      }
+
+      /* Grid dots */
+      .brand-dots {
+        position: absolute;
+        inset: 0;
+        background-image: radial-gradient(circle, rgba(255, 255, 255, 0.08) 1px, transparent 1px);
+        background-size: 32px 32px;
+        pointer-events: none;
+      }
+
+      .brand-top {
+        position: relative;
+        z-index: 1;
+      }
+
+      .brand-logo {
+        display: flex;
+        align-items: center;
+        gap: 14px;
+      }
+
+      .brand-logo-img {
+        width: 52px;
+        height: 52px;
+        border-radius: 14px;
+        object-fit: cover;
+        border: 2px solid rgba(255, 255, 255, 0.18);
+        box-shadow: 0 4px 20px rgba(0, 0, 0, 0.3);
+      }
+
+      .brand-logo-text {
+        line-height: 1.25;
+      }
+
+      .brand-name {
+        font-size: 1.25rem;
+        font-weight: 800;
+        color: #fff;
+        letter-spacing: -0.01em;
+      }
+
+      .brand-sub {
+        font-size: 0.78rem;
+        color: rgba(255, 255, 255, 0.5);
+        font-weight: 500;
+        letter-spacing: 0.04em;
+        text-transform: uppercase;
+      }
+
+      .brand-middle {
+        position: relative;
+        z-index: 1;
+        flex: 1;
+        display: flex;
+        align-items: center;
+      }
+
+      .brand-hero {
+        width: 100%;
+      }
+
+      .brand-headline {
+        font-size: 2.6rem;
+        font-weight: 800;
+        color: #fff;
+        line-height: 1.18;
+        letter-spacing: -0.03em;
+        margin-bottom: 18px;
+      }
+
+      .brand-headline span {
+        background: linear-gradient(90deg, #818cf8, #a78bfa);
+        -webkit-background-clip: text;
+        -webkit-text-fill-color: transparent;
+        background-clip: text;
+      }
+
+      .brand-desc {
+        font-size: 1rem;
+        color: rgba(255, 255, 255, 0.55);
+        line-height: 1.65;
+        max-width: 360px;
+      }
+
+      /* Stat cards */
+      .brand-stats {
+        display: grid;
+        grid-template-columns: repeat(3, 1fr);
+        gap: 12px;
+        margin-top: 40px;
+      }
+
+      .stat-card {
+        background: rgba(255, 255, 255, 0.06);
+        border: 1px solid rgba(255, 255, 255, 0.1);
+        border-radius: 12px;
+        padding: 16px 14px;
+        backdrop-filter: blur(4px);
+      }
+
+      .stat-value {
+        font-size: 1.5rem;
+        font-weight: 800;
+        color: #fff;
+        letter-spacing: -0.02em;
+      }
+
+      .stat-label {
+        font-size: 0.72rem;
+        color: rgba(255, 255, 255, 0.45);
+        font-weight: 500;
+        margin-top: 3px;
+        letter-spacing: 0.03em;
+        text-transform: uppercase;
+      }
+
+      .brand-bottom {
+        position: relative;
+        z-index: 1;
+        font-size: 0.75rem;
+        color: rgba(255, 255, 255, 0.3);
+      }
+
+      /* ── Right form panel ────────────────────────────────── */
+      .form-panel {
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        padding: 48px 32px;
+        background: #fff;
+      }
+
+      .form-inner {
+        width: 100%;
+        max-width: 380px;
+      }
+
+      .form-header {
+        margin-bottom: 36px;
+      }
+
+      .form-eyebrow {
+        display: inline-flex;
+        align-items: center;
+        gap: 7px;
+        font-size: 0.75rem;
+        font-weight: 700;
+        color: var(--primary);
+        text-transform: uppercase;
+        letter-spacing: 0.08em;
+        margin-bottom: 12px;
+      }
+
+      .form-eyebrow-dot {
+        width: 6px;
+        height: 6px;
+        border-radius: 50%;
+        background: var(--primary);
+      }
+
+      h1 {
+        font-size: 1.9rem;
+        font-weight: 800;
+        color: var(--text);
+        letter-spacing: -0.03em;
+        line-height: 1.15;
+        margin-bottom: 8px;
+      }
+
+      .form-subtitle {
+        font-size: 0.9rem;
+        color: var(--text-muted);
+        line-height: 1.5;
+      }
+
+      /* Fields */
+      .field {
+        margin-bottom: 20px;
+      }
+
+      .field-label {
+        display: flex;
+        align-items: center;
+        gap: 6px;
+        font-size: 0.83rem;
+        font-weight: 600;
+        color: #374151;
+        margin-bottom: 8px;
+      }
+
+      .field-label svg {
+        color: #9ca3af;
+      }
+
+      .input-wrap {
+        position: relative;
+      }
+
+      .input-icon {
+        position: absolute;
+        left: 14px;
+        top: 50%;
+        transform: translateY(-50%);
+        color: #9ca3af;
+        pointer-events: none;
+      }
+
+      input {
+        width: 100%;
+        padding: 12px 14px 12px 42px;
+        border: 1.5px solid var(--border);
+        border-radius: var(--radius);
+        font-size: 0.93rem;
+        color: var(--text);
+        background: #f8fafc;
+        outline: none;
+        transition:
+          border-color 0.15s,
+          box-shadow 0.15s,
+          background 0.15s;
+      }
+
+      input:focus {
+        border-color: var(--primary);
+        box-shadow: 0 0 0 4px rgba(79, 110, 247, 0.1);
+        background: #fff;
+      }
+
+      input::placeholder {
+        color: #c4c9d4;
+      }
+
+      /* Show/hide password toggle */
+      .pw-toggle {
+        position: absolute;
+        right: 12px;
+        top: 50%;
+        transform: translateY(-50%);
+        background: none;
+        border: none;
+        cursor: pointer;
+        color: #9ca3af;
+        padding: 4px;
+        border-radius: 6px;
+        display: flex;
+        align-items: center;
+        transition: color 0.15s;
+      }
+      .pw-toggle:hover {
+        color: #4b5563;
+      }
+
+      /* Submit */
+      .btn-login {
+        width: 100%;
+        margin-top: 6px;
+        padding: 13px;
+        background: linear-gradient(135deg, var(--primary) 0%, var(--primary-dk) 100%);
+        color: #fff;
+        border: none;
+        border-radius: var(--radius);
+        font-size: 0.97rem;
+        font-weight: 700;
+        cursor: pointer;
+        transition:
+          opacity 0.15s,
+          transform 0.1s,
+          box-shadow 0.15s;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        gap: 8px;
+        box-shadow: 0 4px 20px rgba(79, 110, 247, 0.35);
+        letter-spacing: -0.01em;
+      }
+
+      .btn-login:hover {
+        opacity: 0.92;
+        box-shadow: 0 6px 28px rgba(79, 110, 247, 0.45);
+      }
+      .btn-login:active {
+        transform: scale(0.98);
+      }
+      .btn-login:disabled {
+        opacity: 0.55;
+        cursor: not-allowed;
+        box-shadow: none;
+      }
+
+      .btn-arrow {
+        transition: transform 0.15s;
+      }
+      .btn-login:hover:not(:disabled) .btn-arrow {
+        transform: translateX(3px);
+      }
+
+      .spinner {
+        width: 18px;
+        height: 18px;
+        border: 2px solid rgba(255, 255, 255, 0.35);
+        border-top-color: #fff;
+        border-radius: 50%;
+        animation: spin 0.7s linear infinite;
+      }
+      @keyframes spin {
+        to {
+          transform: rotate(360deg);
+        }
+      }
+
+      /* Error */
+      .error-msg {
+        margin-top: 14px;
+        padding: 11px 14px;
+        background: #fef2f2;
+        border: 1px solid #fecaca;
+        border-radius: 9px;
+        color: var(--error);
+        font-size: 0.85rem;
+        font-weight: 500;
+        display: none;
+        align-items: center;
+        gap: 8px;
+      }
+      .error-msg.show {
+        display: flex;
+      }
+
+      /* Footer */
+      .form-footer {
+        margin-top: 32px;
+        padding-top: 24px;
+        border-top: 1px solid var(--border);
+        display: flex;
+        align-items: center;
+        gap: 10px;
+      }
+
+      .form-footer-logo {
+        width: 32px;
+        height: 32px;
+        border-radius: 8px;
+        object-fit: cover;
+        opacity: 0.6;
+      }
+
+      .form-footer-text {
+        font-size: 0.77rem;
+        color: #9ca3af;
+        line-height: 1.4;
+      }
+
+      /* Forgot password */
+      .forgot-row {
+        display: flex;
+        justify-content: flex-end;
+        margin-top: 6px;
+        margin-bottom: 4px;
+      }
+      .forgot-link {
+        background: none;
+        border: none;
+        padding: 0;
+        font-size: 0.8rem;
+        font-weight: 600;
+        color: var(--primary);
+        cursor: pointer;
+        opacity: 0.75;
+        transition: opacity 0.15s;
+      }
+      .forgot-link:hover {
+        opacity: 1;
+        text-decoration: underline;
+      }
+
+      /* Contact admin panel */
+      .contact-panel {
+        display: none;
+        flex-direction: column;
+        gap: 12px;
+        margin-top: 16px;
+        padding: 16px;
+        background: #f0f5ff;
+        border: 1.5px solid #c7d7fc;
+        border-radius: 12px;
+        animation: slideDown 0.2s ease;
+      }
+      .contact-panel.show {
+        display: flex;
+      }
+      @keyframes slideDown {
+        from {
+          opacity: 0;
+          transform: translateY(-6px);
+        }
+        to {
+          opacity: 1;
+          transform: translateY(0);
+        }
+      }
+      .contact-panel-header {
+        display: flex;
+        align-items: center;
+        gap: 7px;
+        font-size: 0.88rem;
+        font-weight: 700;
+        color: #1e3a8a;
+      }
+      .contact-panel-msg {
+        font-size: 0.8rem;
+        color: #3b5bdb;
+        line-height: 1.55;
+        margin: 0;
+      }
+      .contact-admin-row {
+        display: flex;
+        align-items: center;
+        gap: 10px;
+        padding: 10px 12px;
+        background: #fff;
+        border-radius: 9px;
+        border: 1px solid #c7d7fc;
+      }
+      .contact-admin-logo {
+        width: 34px;
+        height: 34px;
+        border-radius: 8px;
+        object-fit: cover;
+      }
+      .contact-admin-info {
+        display: flex;
+        flex-direction: column;
+        gap: 1px;
+      }
+      .contact-admin-label {
+        font-size: 0.83rem;
+        font-weight: 700;
+        color: #1e3a8a;
+      }
+      .contact-admin-sub {
+        font-size: 0.73rem;
+        color: #6b7280;
+      }
+      .contact-close {
+        align-self: flex-end;
+        background: var(--primary);
+        color: #fff;
+        border: none;
+        border-radius: 7px;
+        padding: 6px 16px;
+        font-size: 0.8rem;
+        font-weight: 600;
+        cursor: pointer;
+        transition: opacity 0.15s;
+      }
+      .contact-close:hover {
+        opacity: 0.88;
+      }
+
+      /* Responsive */
+      @media (max-width: 768px) {
+        .page {
+          grid-template-columns: 1fr;
+        }
+        .brand-panel {
+          display: none;
+        }
+        .form-panel {
+          background: #f8fafc;
+        }
+      }
+    </style>
+  </head>
+  <body>
+    <div class="page">
+      <!-- Left: Brand panel -->
+      <div class="brand-panel">
+        <div class="brand-dots"></div>
+
+        <div class="brand-top">
+          <div class="brand-logo">
+            <img src="assets/logo.svg" alt="Logo" class="brand-logo-img" />
+            <div class="brand-logo-text">
+              <div class="brand-name">Load Test Platform</div>
+              <div class="brand-sub">Performance Platform</div>
+            </div>
+          </div>
+        </div>
+
+        <div class="brand-middle">
+          <div class="brand-hero">
+            <h2 class="brand-headline">Push your systems<br />to the <span>limit</span></h2>
+            <p class="brand-desc">
+              Enterprise-grade load testing powered by k6. Simulate thousands of users, measure real
+              performance, and ship with confidence.
+            </p>
+            <div class="brand-stats">
+              <div class="stat-card">
+                <div class="stat-value">k6</div>
+                <div class="stat-label">Engine</div>
+              </div>
+              <div class="stat-card">
+                <div class="stat-value">∞</div>
+                <div class="stat-label">VUs</div>
+              </div>
+              <div class="stat-card">
+                <div class="stat-value">Live</div>
+                <div class="stat-label">Metrics</div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <div class="brand-bottom">&copy; 2026 Load Test Platform</div>
+      </div>
+
+      <!-- Right: Login form -->
+      <div class="form-panel">
+        <div class="form-inner">
+          <div class="form-header">
+            <div class="form-eyebrow">
+              <div class="form-eyebrow-dot"></div>
+              Secure Access
+            </div>
+            <h1>Welcome back</h1>
+            <p class="form-subtitle">Sign in to your account to access the dashboard</p>
+          </div>
+
+          <form id="loginForm" autocomplete="off">
+            <div class="field">
+              <label class="field-label" for="username">
+                <svg
+                  width="14"
+                  height="14"
+                  viewBox="0 0 24 24"
+                  fill="none"
+                  stroke="currentColor"
+                  stroke-width="2.5"
+                >
+                  <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2" />
+                  <circle cx="12" cy="7" r="4" />
+                </svg>
+                Username
+              </label>
+              <div class="input-wrap">
+                <svg
+                  class="input-icon"
+                  width="16"
+                  height="16"
+                  viewBox="0 0 24 24"
+                  fill="none"
+                  stroke="currentColor"
+                  stroke-width="2"
+                >
+                  <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2" />
+                  <circle cx="12" cy="7" r="4" />
+                </svg>
+                <input
+                  id="username"
+                  type="text"
+                  placeholder="Enter your username"
+                  autocomplete="username"
+                  autofocus
+                />
+              </div>
+            </div>
+
+            <div class="field">
+              <label class="field-label" for="password">
+                <svg
+                  width="14"
+                  height="14"
+                  viewBox="0 0 24 24"
+                  fill="none"
+                  stroke="currentColor"
+                  stroke-width="2.5"
+                >
+                  <rect x="3" y="11" width="18" height="11" rx="2" />
+                  <path d="M7 11V7a5 5 0 0 1 10 0v4" />
+                </svg>
+                Password
+              </label>
+              <div class="input-wrap">
+                <svg
+                  class="input-icon"
+                  width="16"
+                  height="16"
+                  viewBox="0 0 24 24"
+                  fill="none"
+                  stroke="currentColor"
+                  stroke-width="2"
+                >
+                  <rect x="3" y="11" width="18" height="11" rx="2" />
+                  <path d="M7 11V7a5 5 0 0 1 10 0v4" />
+                </svg>
+                <input
+                  id="password"
+                  type="password"
+                  placeholder="••••••••"
+                  autocomplete="current-password"
+                />
+                <button type="button" class="pw-toggle" id="pwToggle" aria-label="Toggle password">
+                  <svg
+                    id="eyeIcon"
+                    width="16"
+                    height="16"
+                    viewBox="0 0 24 24"
+                    fill="none"
+                    stroke="currentColor"
+                    stroke-width="2"
+                  >
+                    <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z" />
+                    <circle cx="12" cy="12" r="3" />
+                  </svg>
+                </button>
+              </div>
+            </div>
+
+            <div class="forgot-row">
+              <button type="button" class="forgot-link" id="forgotBtn">Forgot password?</button>
+            </div>
+
+            <button type="submit" class="btn-login" id="submitBtn">
+              <span id="btnContent">
+                Sign in
+                <svg
+                  class="btn-arrow"
+                  width="16"
+                  height="16"
+                  viewBox="0 0 24 24"
+                  fill="none"
+                  stroke="currentColor"
+                  stroke-width="2.5"
+                >
+                  <line x1="5" y1="12" x2="19" y2="12" />
+                  <polyline points="12 5 19 12 12 19" />
+                </svg>
+              </span>
+            </button>
+
+            <div class="error-msg" id="errorMsg">
+              <svg
+                width="15"
+                height="15"
+                viewBox="0 0 24 24"
+                fill="none"
+                stroke="currentColor"
+                stroke-width="2.5"
+                style="flex-shrink: 0"
+              >
+                <circle cx="12" cy="12" r="10" />
+                <line x1="12" y1="8" x2="12" y2="12" />
+                <line x1="12" y1="16" x2="12.01" y2="16" />
+              </svg>
+              <span id="errorText"></span>
+            </div>
+
+            <!-- Contact admin panel (shown on forgot password) -->
+            <div class="contact-panel" id="contactPanel">
+              <div class="contact-panel-header">
+                <svg
+                  width="16"
+                  height="16"
+                  viewBox="0 0 24 24"
+                  fill="none"
+                  stroke="currentColor"
+                  stroke-width="2"
+                >
+                  <circle cx="12" cy="12" r="10" />
+                  <path d="M9.09 9a3 3 0 0 1 5.83 1c0 2-3 3-3 3" />
+                  <line x1="12" y1="17" x2="12.01" y2="17" />
+                </svg>
+                Password Reset
+              </div>
+              <p class="contact-panel-msg">
+                This is an internal tool — password resets are done by your administrator.<br />
+                Please reach out to your admin directly to get a new password or a fresh invite
+                link.
+              </p>
+              <div class="contact-admin-row">
+                <img src="assets/logo.svg" alt="Admin" class="contact-admin-logo" />
+                <div class="contact-admin-info">
+                  <span class="contact-admin-label">System Administrator</span>
+                  <span class="contact-admin-sub">Load Test Platform</span>
+                </div>
+              </div>
+              <button type="button" class="contact-close" id="contactClose">Got it</button>
+            </div>
+          </form>
+
+          <div class="form-footer">
+            <img src="assets/logo.svg" alt="Logo" class="form-footer-logo" />
+            <div class="form-footer-text">
+              Load Test Platform &mdash; Open-source tool<br />
+              Contact your admin for access
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <script src="/login.js" defer></script>
+  </body>
+</html>

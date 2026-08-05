@@ -38,21 +38,20 @@ function loadChartUmdInline() {
 
 function loadLogoDataUri() {
   const candidates = [
-    join(process.cwd(), 'public', 'assets', 'favicon.jpg'),
     join(process.cwd(), 'public', 'assets', 'logo.jpg'),
+    join(process.cwd(), 'public', 'assets', 'favicon.png'),
   ];
   try {
     for (const file of candidates) {
       if (existsSync(file)) {
         const buf = readFileSync(file);
-        return `data:image/jpeg;base64,${buf.toString('base64')}`;
+        const mime = file.endsWith('.png') ? 'image/png' : 'image/jpeg';
+        return `data:${mime};base64,${buf.toString('base64')}`;
       }
     }
   } catch {
     /* ignore */
   }
-  return REPORT_LOGO_DATA_URI;
-}
   return REPORT_LOGO_DATA_URI;
 }
 

@@ -3,8 +3,8 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>Accept Invite — Load Test Platform</title>
-    <link rel="icon" type="image/svg+xml" href="assets/logo.svg" />
+    <title>Accept Invite — FasterTest</title>
+    <link rel="icon" type="image/svg+xml" href="assets/mark.svg?v=2" />
     <style>
       *,
       *::before,
@@ -94,6 +94,18 @@
         object-fit: cover;
         border: 2px solid rgba(255, 255, 255, 0.18);
         box-shadow: 0 4px 20px rgba(0, 0, 0, 0.3);
+      }
+      .brand-logo--hero {
+        display: flex;
+        align-items: center;
+      }
+      .brand-logo-full {
+        width: min(280px, 70%);
+        height: auto;
+        border-radius: 16px;
+        object-fit: contain;
+        box-shadow: 0 8px 32px rgba(0, 0, 0, 0.35);
+        border: 1px solid rgba(255, 255, 255, 0.12);
       }
       .brand-name {
         font-size: 1.25rem;
@@ -452,24 +464,20 @@
       <div class="brand-panel">
         <div class="brand-dots"></div>
         <div class="brand-top">
-          <div class="brand-logo">
-            <img src="assets/logo.svg" alt="Logo" class="brand-logo-img" />
-            <div>
-              <div class="brand-name">Load Test Platform</div>
-              <div class="brand-sub">Performance Platform</div>
-            </div>
+          <div class="brand-logo brand-logo--hero">
+            <img src="assets/logo.jpg" alt="FasterTest" class="brand-logo-full" />
           </div>
         </div>
         <div class="brand-middle">
           <div>
             <h2 class="brand-headline">You've been<br /><span>invited</span></h2>
             <p class="brand-desc">
-              Join the Load Test Platform.<br />
+              Join FasterTest.<br />
               Complete your account setup to get started with enterprise-grade load testing.
             </p>
           </div>
         </div>
-        <div class="brand-bottom">&copy; 2026 Load Test Platform</div>
+        <div class="brand-bottom">&copy; 2026 FasterTest</div>
       </div>
 
       <div class="form-panel">

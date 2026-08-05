@@ -1,4 +1,4 @@
-# Load Test UI Panel
+# FasterTest Panel
 
 Web dashboard for running k6 load tests, managing users, and viewing live results. The UI talks to a
 Node server on your machine; **k6 runs locally on that same host** (not in the browser).
@@ -264,7 +264,7 @@ Example start body:
 | Reports disk | `REPORT_MAX_AGE_DAYS`, `REPORT_MAX_TOTAL_MB`, `REPORT_MAX_FILE_MB` in `.env` |
 | Audit log    | `data/audit.json` auto-trimmed to 5000 entries                               |
 | Log rotation | Optional: `deploy/logrotate.conf.example` → `/etc/logrotate.d/`              |
-| Logo asset   | `public/assets/logo.svg` is in git — include when rsyncing to VMs        |
+| Logo asset   | `public/assets/logo.jpg` is in git — include when rsyncing to VMs        |
 
 ---
 

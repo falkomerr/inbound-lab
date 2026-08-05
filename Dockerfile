@@ -1,4 +1,4 @@
-# Load Test Platform — Node UI + k6
+# FasterTest — Node UI + k6
 # Load is generated FROM this container (not from the browser).
 
 FROM node:20-bookworm-slim AS deps

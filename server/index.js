@@ -1,5 +1,5 @@
 /**
- * Load Test UI Panel Server
+ * FasterTest UI Panel Server
  * Express.js server for managing and running k6 load tests via web UI
  * @module server
  */

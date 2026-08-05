@@ -873,7 +873,7 @@ export function reportHeaderHtml({ logoDataUri, metaTitle, metaCaption }) {
   <div class="report-nav-brand">
     <img src="${src}" alt="" width="48" height="48" class="report-logo" />
     <div class="report-brand-text">
-      <span class="report-brand-name">Load Test</span>
+      <span class="report-brand-name">FasterTest</span>
       <span class="report-brand-sub">k6 Platform</span>
     </div>
   </div>

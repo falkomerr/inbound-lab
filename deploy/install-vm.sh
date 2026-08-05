@@ -1,19 +1,19 @@
 #!/usr/bin/env bash
-# Install B2B Load Test Platform on a Linux VM (Ubuntu/Debian).
+# Install FasterTest on a Linux VM (Ubuntu/Debian).
 # Tests run ON this VM via k6 — users only open the web UI in a browser.
 #
 # Usage (on the VM):
 #   curl -fsSL .../install-vm.sh | bash
 #   # or from a cloned repo:
-#   sudo bash deploy/install-vm.sh /opt/load-test-platform
+#   sudo bash deploy/install-vm.sh /opt/fastertest
 #
 set -euo pipefail
 
-INSTALL_DIR="${1:-/opt/load-test-platform}"
-SERVICE_USER="${SERVICE_USER:-loadtest}"
+INSTALL_DIR="${1:-/opt/fastertest}"
+SERVICE_USER="${SERVICE_USER:-fastertest}"
 NODE_MAJOR="${NODE_MAJOR:-20}"
 
-echo "==> B2B Load Test Platform — VM install"
+echo "==> FasterTest — VM install"
 echo "    Install dir: ${INSTALL_DIR}"
 
 if [[ "$(id -u)" -ne 0 ]]; then
@@ -69,30 +69,30 @@ if [[ ! -f .env ]]; then
 fi
 
 # systemd
-cp deploy/load-test-platform.service /etc/systemd/system/load-test-platform.service
+cp deploy/fastertest.service /etc/systemd/system/fastertest.service
 systemctl daemon-reload
-systemctl enable load-test-platform
-systemctl restart load-test-platform
+systemctl enable fastertest
+systemctl restart fastertest
 
 HEALTH_PORT=$(grep -E '^UI_PORT=' .env 2>/dev/null | cut -d= -f2 | tr -d '"' || echo 3001)
 if curl -sf "http://127.0.0.1:${HEALTH_PORT}/api/health" >/dev/null; then
   echo "==> Health check OK: http://127.0.0.1:${HEALTH_PORT}/api/health"
 else
-  echo "==> WARNING: health check failed — see: journalctl -u load-test-platform -n 50"
+  echo "==> WARNING: health check failed — see: journalctl -u fastertest -n 50"
 fi
 
 echo ""
 echo "Optional: install log rotation for logs/ and reports/"
-echo "  sudo cp deploy/logrotate.conf.example /etc/logrotate.d/load-test-platform"
+echo "  sudo cp deploy/logrotate.conf.example /etc/logrotate.d/fastertest"
 
 echo ""
 echo "==> Service status:"
-systemctl --no-pager status load-test-platform || true
+systemctl --no-pager status fastertest || true
 
 VM_IP=$(hostname -I 2>/dev/null | awk '{print $1}')
 echo ""
 echo "================================================================"
-echo " Platform is running on this VM."
+echo " FasterTest is running on this VM."
 echo " 1. Edit ${INSTALL_DIR}/.env:"
 echo "      APP_BASE_URL=http://${VM_IP:-YOUR_IP}:3001"
 echo "      ALLOWED_ORIGINS=http://${VM_IP:-YOUR_IP}:3001"

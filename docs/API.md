@@ -1,6 +1,6 @@
-# Load Test API Reference
+# FasterTest API Reference
 
-REST and WebSocket API for the Load Test Platform.
+REST and WebSocket API for FasterTest.
 
 **Base URL:** `http://localhost:3001/api` (or your `APP_BASE_URL` + `/api`)
 
@@ -127,7 +127,7 @@ Error:
 
 **Auth:** Public
 
-Readiness probe for load balancers, systemd (`ExecStartPost` in `deploy/load-test-platform.service`), and
+Readiness probe for load balancers, systemd (`ExecStartPost` in `deploy/fastertest.service`), and
 uptime monitors.
 
 ```bash

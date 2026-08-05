@@ -24,7 +24,7 @@ export default function () {
   const res = http.get(`${BASE_URL}/get`, {
     headers: {
       Accept: 'application/json',
-      'User-Agent': 'load-test-platform/k6',
+      'User-Agent': 'fastertest/k6',
     },
     tags: { name: 'sample_get' },
   });

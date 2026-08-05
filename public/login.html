@@ -3,8 +3,8 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>Sign In — Load Test Platform</title>
-    <link rel="icon" type="image/svg+xml" href="assets/logo.svg" />
+    <title>Sign In — FasterTest</title>
+    <link rel="icon" type="image/svg+xml" href="assets/mark.svg?v=2" />
     <style>
       *,
       *::before,
@@ -43,11 +43,11 @@
       /* ── Left brand panel ────────────────────────────────── */
       .brand-panel {
         position: relative;
-        background: linear-gradient(155deg, #0f172a 0%, #1e1b4b 45%, #312e81 100%);
+        background: #000;
         display: flex;
         flex-direction: column;
         justify-content: space-between;
-        padding: 48px 52px;
+        padding: 40px 44px 36px;
         overflow: hidden;
       }
 
@@ -60,7 +60,7 @@
         width: 380px;
         height: 380px;
         border-radius: 50%;
-        background: radial-gradient(circle, rgba(99, 102, 241, 0.35) 0%, transparent 70%);
+        background: radial-gradient(circle, rgba(99, 102, 241, 0.18) 0%, transparent 70%);
         pointer-events: none;
       }
       .brand-panel::after {
@@ -71,7 +71,7 @@
         width: 320px;
         height: 320px;
         border-radius: 50%;
-        background: radial-gradient(circle, rgba(124, 58, 237, 0.3) 0%, transparent 70%);
+        background: radial-gradient(circle, rgba(168, 85, 247, 0.14) 0%, transparent 70%);
         pointer-events: none;
       }
 
@@ -79,7 +79,7 @@
       .brand-dots {
         position: absolute;
         inset: 0;
-        background-image: radial-gradient(circle, rgba(255, 255, 255, 0.08) 1px, transparent 1px);
+        background-image: none;
         background-size: 32px 32px;
         pointer-events: none;
       }
@@ -96,12 +96,31 @@
       }
 
       .brand-logo-img {
-        width: 52px;
-        height: 52px;
-        border-radius: 14px;
-        object-fit: cover;
-        border: 2px solid rgba(255, 255, 255, 0.18);
-        box-shadow: 0 4px 20px rgba(0, 0, 0, 0.3);
+        width: 40px;
+        height: 40px;
+        border-radius: 0;
+        object-fit: contain;
+        border: none;
+        box-shadow: none;
+        background: transparent;
+      }
+
+
+      .brand-logo--hero {
+        display: flex;
+        align-items: center;
+        justify-content: flex-start;
+      }
+      .brand-logo-full {
+        width: min(360px, 92%);
+        height: auto;
+        display: block;
+        border: none !important;
+        border-radius: 0 !important;
+        box-shadow: none !important;
+        outline: none;
+        background: transparent;
+        object-fit: contain;
       }
 
       .brand-logo-text {
@@ -413,11 +432,15 @@
       }
 
       .form-footer-logo {
-        width: 32px;
-        height: 32px;
-        border-radius: 8px;
-        object-fit: cover;
-        opacity: 0.6;
+        width: 28px;
+        height: 28px;
+        border: 0 !important;
+        outline: none;
+        border-radius: 0;
+        box-shadow: none !important;
+        object-fit: contain;
+        background: transparent !important;
+        opacity: 1;
       }
 
       .form-footer-text {
@@ -498,10 +521,14 @@
         border: 1px solid #c7d7fc;
       }
       .contact-admin-logo {
-        width: 34px;
-        height: 34px;
-        border-radius: 8px;
-        object-fit: cover;
+        width: 28px;
+        height: 28px;
+        border: 0 !important;
+        outline: none;
+        border-radius: 0;
+        box-shadow: none !important;
+        object-fit: contain;
+        background: transparent !important;
       }
       .contact-admin-info {
         display: flex;
@@ -554,12 +581,8 @@
         <div class="brand-dots"></div>
 
         <div class="brand-top">
-          <div class="brand-logo">
-            <img src="assets/logo.svg" alt="Logo" class="brand-logo-img" />
-            <div class="brand-logo-text">
-              <div class="brand-name">Load Test Platform</div>
-              <div class="brand-sub">Performance Platform</div>
-            </div>
+          <div class="brand-logo brand-logo--hero">
+            <img src="assets/logo.jpg" alt="FasterTest" class="brand-logo-full" />
           </div>
         </div>
 
@@ -587,7 +610,7 @@
           </div>
         </div>
 
-        <div class="brand-bottom">&copy; 2026 Load Test Platform</div>
+        <div class="brand-bottom">&copy; 2026 FasterTest</div>
       </div>
 
       <!-- Right: Login form -->
@@ -754,10 +777,9 @@
                 link.
               </p>
               <div class="contact-admin-row">
-                <img src="assets/logo.svg" alt="Admin" class="contact-admin-logo" />
                 <div class="contact-admin-info">
                   <span class="contact-admin-label">System Administrator</span>
-                  <span class="contact-admin-sub">Load Test Platform</span>
+                  <span class="contact-admin-sub">FasterTest</span>
                 </div>
               </div>
               <button type="button" class="contact-close" id="contactClose">Got it</button>
@@ -765,9 +787,9 @@
           </form>
 
           <div class="form-footer">
-            <img src="assets/logo.svg" alt="Logo" class="form-footer-logo" />
+            <img src="assets/mark.svg?v=2" alt="" class="form-footer-logo" width="24" height="24" />
             <div class="form-footer-text">
-              Load Test Platform &mdash; Open-source tool<br />
+              FasterTest — Open-source tool<br />
               Contact your admin for access
             </div>
           </div>

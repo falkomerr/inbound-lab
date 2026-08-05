@@ -1,5 +1,5 @@
 /**
- * Load Test UI Panel - Vue.js Application
+ * FasterTest Panel - Vue.js Application
  */
 
 // Store charts outside Vue reactivity to prevent infinite loops
@@ -3497,9 +3497,9 @@ const app = Vue.createApp({
       }
 
       try {
-        let logoDataUri = await this.fetchAssetAsDataUrl('assets/logo.svg');
+        let logoDataUri = await this.fetchAssetAsDataUrl('assets/favicon.jpg');
         if (!logoDataUri) {
-          logoDataUri = await this.fetchAssetAsDataUrl('assets/favicon.svg');
+          logoDataUri = await this.fetchAssetAsDataUrl('assets/logo.jpg');
         }
         const html = await this.generateHTMLReport(results, { logoDataUri });
         const dataBlob = new Blob([html], { type: 'text/html' });
@@ -4022,7 +4022,7 @@ const app = Vue.createApp({
         </div>
       </div>
       <footer class="report-footer">
-        <p>Load Test UI · Load Test Platform · ${generatedStamp}</p>
+        <p>FasterTest · FasterTest · ${generatedStamp}</p>
       </footer>
     </div>
   </div>

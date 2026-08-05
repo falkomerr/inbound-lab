@@ -1,7 +1,7 @@
 {
-  "name": "load-test-platform",
+  "name": "fastertest",
   "version": "1.0.0",
-  "description": "Open-source k6 load and stress testing platform with a secure web UI",
+  "description": "FasterTest — open-source k6 load and stress testing platform with a secure web UI",
   "type": "module",
   "main": "server/index.js",
   "scripts": {
@@ -53,16 +53,20 @@
     "test:coverage": "node --test --experimental-test-coverage --test-concurrency=1 tests/unit/*.test.js tests/integration/*.test.js"
   },
   "keywords": [
+    "fastertest",
+    "k6",
     "load-testing",
     "stress-testing",
-    "performance",
+    "performance-testing",
     "load-test",
-    "stress-test",
-    "k6",
     "api-testing",
-    "performance-testing"
+    "web-ui",
+    "mysql",
+    "jwt",
+    "devops",
+    "sre"
   ],
-  "author": "Load Test Platform Contributors",
+  "author": "Alireza Edalat",
   "license": "ISC",
   "dependencies": {
     "bcryptjs": "^3.0.3",
@@ -92,10 +96,10 @@
   },
   "repository": {
     "type": "git",
-    "url": "https://github.com/YOUR_USERNAME/load-test-platform.git"
+    "url": "https://github.com/alirezaedalat/fastertest.git"
   },
   "bugs": {
-    "url": "https://github.com/YOUR_USERNAME/load-test-platform/issues"
+    "url": "https://github.com/alirezaedalat/fastertest/issues"
   },
-  "homepage": "https://github.com/YOUR_USERNAME/load-test-platform#readme"
+  "homepage": "https://github.com/alirezaedalat/fastertest#readme"
 }

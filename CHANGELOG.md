@@ -9,6 +9,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- **FasterTest** branding and official logo assets
 - MySQL storage backend for users, invites, password resets, audit log, and access control
 - Automatic schema migration on server start (`npm run db:migrate`)
 - JSON → MySQL import (`npm run db:migrate-json`)

@@ -37,18 +37,22 @@ function loadChartUmdInline() {
 }
 
 function loadLogoDataUri() {
-  const logoSvg = join(process.cwd(), 'public', 'assets', 'logo.svg');
-  const favicon = join(process.cwd(), 'public', 'assets', 'favicon.svg');
+  const candidates = [
+    join(process.cwd(), 'public', 'assets', 'favicon.jpg'),
+    join(process.cwd(), 'public', 'assets', 'logo.jpg'),
+  ];
   try {
-    for (const svg of [logoSvg, favicon]) {
-      if (existsSync(svg)) {
-        const s = readFileSync(svg, 'utf8');
-        return `data:image/svg+xml,${encodeURIComponent(s)}`;
+    for (const file of candidates) {
+      if (existsSync(file)) {
+        const buf = readFileSync(file);
+        return `data:image/jpeg;base64,${buf.toString('base64')}`;
       }
     }
   } catch {
     /* ignore */
   }
+  return REPORT_LOGO_DATA_URI;
+}
   return REPORT_LOGO_DATA_URI;
 }
 
@@ -212,7 +216,7 @@ function generateHTMLReport(jsonPath = 'reports/results.json', outputPath = 'rep
         </div>
       </div>
       <footer class="report-footer">
-        <p>Load Test Platform · ${generatedStamp}</p>
+        <p>FasterTest · ${generatedStamp}</p>
       </footer>
     </div>
   </div>

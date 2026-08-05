@@ -3,8 +3,8 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>Reset Password — Load Test Platform</title>
-    <link rel="icon" type="image/svg+xml" href="assets/logo.svg" />
+    <title>Reset Password — FasterTest</title>
+    <link rel="icon" type="image/svg+xml" href="assets/mark.svg?v=2" />
     <style>
       *,
       *::before,
@@ -100,6 +100,20 @@
         object-fit: cover;
         border: 2px solid rgba(255, 255, 255, 0.18);
         box-shadow: 0 4px 20px rgba(0, 0, 0, 0.3);
+      }
+
+      .brand-logo--hero {
+        display: flex;
+        align-items: center;
+      }
+
+      .brand-logo-full {
+        width: min(280px, 70%);
+        height: auto;
+        border-radius: 16px;
+        object-fit: contain;
+        box-shadow: 0 8px 32px rgba(0, 0, 0, 0.35);
+        border: 1px solid rgba(255, 255, 255, 0.12);
       }
 
       .brand-name {
@@ -526,12 +540,8 @@
         <div class="brand-dots"></div>
 
         <div class="brand-top">
-          <div class="brand-logo">
-            <img src="assets/logo.svg" alt="Logo" class="brand-logo-img" />
-            <div>
-              <div class="brand-name">Load Test Platform</div>
-              <div class="brand-sub">Internal Platform</div>
-            </div>
+          <div class="brand-logo brand-logo--hero">
+            <img src="assets/logo.jpg" alt="FasterTest" class="brand-logo-full" />
           </div>
         </div>
 
@@ -569,7 +579,7 @@
           </div>
         </div>
 
-        <div class="brand-bottom">© 2026 Load Test Platform · Open source</div>
+        <div class="brand-bottom">© 2026 FasterTest · Open source</div>
       </div>
 
       <!-- ── Right form panel ──────────────────────────────────── -->

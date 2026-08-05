@@ -33,7 +33,7 @@ const redact = {
 
 const base = {
   level: defaultLevel,
-  base: { service: 'load-test-platform-ui' },
+  base: { service: 'fastertest-ui' },
   redact,
   serializers: {
     err: pino.stdSerializers.err,

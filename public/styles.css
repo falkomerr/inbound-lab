@@ -247,21 +247,25 @@ body {
 }
 
 /* Brand */
-.nav-brand {
-  display: flex;
-  align-items: center;
-  gap: var(--space-3);
-  flex-shrink: 0;
-  margin-right: var(--space-3);
-}
-
 .nav-logo {
   width: 36px;
   height: 36px;
-  border-radius: var(--radius-lg);
-  object-fit: cover;
+  border: 0 !important;
+  outline: none;
+  border-radius: 0;
+  object-fit: contain;
   flex-shrink: 0;
-  box-shadow: 0 0 0 1px var(--border);
+  box-shadow: none !important;
+  background: transparent !important;
+  display: block;
+}
+
+.nav-brand {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-shrink: 0;
+  margin-right: var(--space-3);
 }
 
 .nav-brand-text {

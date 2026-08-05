@@ -1,6 +1,6 @@
-# Contributing to Load Test Framework
+# Contributing to FasterTest
 
-Thank you for your interest in contributing to the Load Test Platform Framework! This document provides
+Thank you for your interest in contributing to the FasterTest! This document provides
 guidelines and instructions for contributing.
 
 ## 📋 Table of Contents
@@ -55,8 +55,8 @@ Before contributing, ensure you have:
 
 ```bash
 # Fork the repository on GitHub, then:
-git clone https://github.com/YOUR_USERNAME/load-test-platform.git
-cd load-test-platform
+git clone https://github.com/alirezaedalat/fastertest.git
+cd fastertest
 ```
 
 ### 2. Install & configure

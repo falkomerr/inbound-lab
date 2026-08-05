@@ -12,7 +12,7 @@
 
 Please report privately so we can fix and disclose responsibly:
 
-1. Prefer [GitHub Security Advisories](https://github.com/YOUR_USERNAME/load-test-platform/security/advisories/new) (replace `YOUR_USERNAME` with the repo owner).
+1. Prefer [GitHub Security Advisories](https://github.com/alirezaedalat/fastertest/security/advisories/new).
 2. Or email the maintainers listed in the repository profile / `package.json` `author` field.
 
 Include:

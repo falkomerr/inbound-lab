@@ -1,12 +1,12 @@
-# /etc/logrotate.d/load-test-platform
-# Copy and adjust paths if INSTALL_DIR is not /opt/load-test-platform
+# /etc/logrotate.d/fastertest
+# Copy and adjust paths if INSTALL_DIR is not /opt/fastertest
 #
-#   sudo cp deploy/logrotate.conf.example /etc/logrotate.d/load-test-platform
+#   sudo cp deploy/logrotate.conf.example /etc/logrotate.d/fastertest
 #
 # Note: the UI server also prunes reports/ on startup via REPORT_* env vars.
 # This logrotate config is an extra safety net for long-running VMs.
 
-/opt/load-test-platform/logs/*.log {
+/opt/fastertest/logs/*.log {
     weekly
     rotate 8
     compress
@@ -17,7 +17,7 @@
 }
 
 # Optional: compress stale large NDJSON/JSON artifacts if retention env is insufficient
-/opt/load-test-platform/reports/* {
+/opt/fastertest/reports/* {
     weekly
     rotate 4
     compress

@@ -19,7 +19,9 @@ describe('resetStore', () => {
   });
 
   async function resets() {
-    const { mod, cleanup: removeDir } = await loadWithIsolatedData('../../server/resetStore.js');
+    const { mod, cleanup: removeDir } = await loadWithIsolatedData(
+      '../../server/stores/json/resetStore.js'
+    );
     cleanup = removeDir;
     return mod;
   }

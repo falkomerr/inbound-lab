@@ -1,0 +1,21 @@
+# Keep build context small and avoid leaking local secrets into images.
+.git
+.github
+.vscode
+.idea
+.env
+.env.*
+!.env.example
+node_modules
+npm-debug.log*
+reports
+logs
+data/*.json
+test-results
+coverage
+*.md
+!README.md
+docs
+agent-transcripts
+.DS_Store
+public/dist

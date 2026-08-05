@@ -1,15 +1,18 @@
 #!/usr/bin/env node
 /**
- * Create the first admin user when data/users.json is empty.
+ * Create the first admin user when the user store is empty.
  * Usage: node scripts/seed-admin.js [username] [password]
  */
+import 'dotenv/config';
+import { initStorage } from '../server/db/index.js';
 import { createUser, getAllUsers } from '../server/userStore.js';
 
 const username = process.argv[2] || process.env.ADMIN_USERNAME || 'admin';
 const password = process.argv[3] || process.env.ADMIN_PASSWORD;
 
 async function main() {
-  const users = getAllUsers();
+  await initStorage();
+  const users = await getAllUsers();
   if (users.length > 0) {
     console.log(`Users already exist (${users.length}). Skipping seed.`);
     process.exit(0);

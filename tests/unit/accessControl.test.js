@@ -27,7 +27,7 @@ describe('accessControlStore', () => {
       mod,
       cleanup: removeDir,
       dir,
-    } = await loadWithIsolatedData('../../server/accessControlStore.js');
+    } = await loadWithIsolatedData('../../server/stores/json/accessControlStore.js');
     cleanup = removeDir;
     dataDir = dir;
     return mod;

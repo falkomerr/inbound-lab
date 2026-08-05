@@ -59,7 +59,7 @@ describe('Auth middleware', () => {
   });
 
   describe('requireAuth', () => {
-    it('returns 401 when Authorization header is missing', () => {
+    it('returns 401 when Authorization header is missing', async () => {
       const req = { headers: {} };
       const res = {
         status: mock.fn(() => res),
@@ -67,14 +67,14 @@ describe('Auth middleware', () => {
       };
       const next = mock.fn();
 
-      requireAuth(req, res, next);
+      await requireAuth(req, res, next);
 
       assert.equal(res.status.mock.calls.length, 1);
       assert.equal(res.status.mock.calls[0].arguments[0], 401);
       assert.equal(next.mock.calls.length, 0);
     });
 
-    it('returns 401 for an invalid bearer token', () => {
+    it('returns 401 for an invalid bearer token', async () => {
       const req = { headers: { authorization: 'Bearer invalid.token.here' } };
       const res = {
         status: mock.fn(() => res),
@@ -82,7 +82,7 @@ describe('Auth middleware', () => {
       };
       const next = mock.fn();
 
-      requireAuth(req, res, next);
+      await requireAuth(req, res, next);
 
       assert.equal(res.status.mock.calls[0].arguments[0], 401);
       assert.equal(next.mock.calls.length, 0);
@@ -105,7 +105,7 @@ describe('Auth middleware', () => {
       };
       const next = mock.fn();
 
-      requireAuth(req, res, next);
+      await requireAuth(req, res, next);
 
       assert.equal(next.mock.calls.length, 1);
       assert.equal(req.user.username, 'auth-user');
@@ -122,7 +122,7 @@ describe('Auth middleware', () => {
         role: created.role,
         tokenVersion: created.tokenVersion,
       });
-      userStore.bumpTokenVersion(created.id);
+      await userStore.bumpTokenVersion(created.id);
 
       const req = { headers: { authorization: `Bearer ${token}` } };
       const res = {
@@ -131,7 +131,7 @@ describe('Auth middleware', () => {
       };
       const next = mock.fn();
 
-      requireAuth(req, res, next);
+      await requireAuth(req, res, next);
 
       assert.equal(res.status.mock.calls[0].arguments[0], 401);
       assert.match(res.json.mock.calls[0].arguments[0].error, /session expired/i);
@@ -141,8 +141,8 @@ describe('Auth middleware', () => {
     it('returns 401 for suspended non-admin accounts', async () => {
       const userStore = await import(`../../server/userStore.js?banned=${Date.now()}`);
       const created = await userStore.createUser('banned-user', 'AuthPass123!', 'developer');
-      userStore.setUserBanned(created.id, true);
-      const fresh = userStore.findById(created.id);
+      await userStore.setUserBanned(created.id, true);
+      const fresh = await userStore.findById(created.id);
       const token = signToken({
         id: fresh.id,
         username: fresh.username,
@@ -157,7 +157,7 @@ describe('Auth middleware', () => {
       };
       const next = mock.fn();
 
-      requireAuth(req, res, next);
+      await requireAuth(req, res, next);
 
       assert.equal(res.status.mock.calls[0].arguments[0], 401);
       assert.match(res.json.mock.calls[0].arguments[0].error, /suspended/i);

@@ -43,6 +43,7 @@ import {
   parseBrowser,
 } from '../auditStore.js';
 import { createReset, getResetByToken, consumeReset } from '../resetStore.js';
+import { useMysqlStorage, pingPool } from '../db/index.js';
 import { assertEmailAllowed } from '../emailPolicy.js';
 import {
   logRouteFailure,
@@ -68,15 +69,22 @@ export function apiRouter(testManager, wss) {
   router.use(sanitizeBody);
 
   /** GET /api/health — public readiness probe (no auth). */
-  router.get('/health', (req, res) => {
-    res.json({
-      success: true,
-      data: {
-        status: 'ok',
-        uptime: process.uptime(),
-        timestamp: new Date().toISOString(),
-      },
-    });
+  router.get('/health', async (req, res) => {
+    const data = {
+      status: 'ok',
+      uptime: process.uptime(),
+      timestamp: new Date().toISOString(),
+      storage: useMysqlStorage() ? 'mysql' : 'json',
+    };
+    if (useMysqlStorage()) {
+      try {
+        data.db = (await pingPool()) ? 'up' : 'down';
+      } catch {
+        data.db = 'down';
+        data.status = 'degraded';
+      }
+    }
+    res.status(data.status === 'ok' ? 200 : 503).json({ success: data.status === 'ok', data });
   });
 
   // ─── Auth ──────────────────────────────────────────────────────────────────
@@ -106,7 +114,7 @@ export function apiRouter(testManager, wss) {
       if (!user) {
         recordLoginFailure(username);
         recordIpLoginFailure(clientIp);
-        appendAudit({
+        void appendAudit({
           type: 'login_failed',
           username,
           ip: getClientIp(req),
@@ -118,7 +126,7 @@ export function apiRouter(testManager, wss) {
       }
 
       if (user.banned && user.role !== 'admin') {
-        appendAudit({
+        void appendAudit({
           type: 'login_denied_banned',
           username: user.username,
           userId: user.id,
@@ -132,8 +140,8 @@ export function apiRouter(testManager, wss) {
           error: 'This account has been suspended. Contact an administrator.',
         });
       }
-      if (getGlobalLoginBan() && user.role !== 'admin') {
-        appendAudit({
+      if ((await getGlobalLoginBan()) && user.role !== 'admin') {
+        void appendAudit({
           type: 'login_denied_global_ban',
           username: user.username,
           userId: user.id,
@@ -153,7 +161,7 @@ export function apiRouter(testManager, wss) {
       clearLoginAttempts(username);
       clearIpLoginAttempts(clientIp);
       // Single session per user: invalidate prior JWTs and disconnect other browsers/tabs.
-      const sessionUser = bumpTokenVersion(user.id);
+      const sessionUser = await bumpTokenVersion(user.id);
       kickUser(wss, user.id, 'Signed in from another browser or device. This session was closed.');
       const token = signToken({
         id: sessionUser.id,
@@ -163,7 +171,7 @@ export function apiRouter(testManager, wss) {
         permissions: sessionUser.permissions || { teams: [], modes: [] },
         limits: sessionUser.limits || { enabled: false, maxVus: 50, maxDurationMinutes: 30 },
       });
-      appendAudit({
+      void appendAudit({
         type: 'login',
         userId: sessionUser.id,
         username: sessionUser.username,
@@ -181,8 +189,8 @@ export function apiRouter(testManager, wss) {
   });
 
   /** GET /api/auth/me — returns fresh user info from store (not stale JWT payload) */
-  router.get('/auth/me', requireAuth, (req, res) => {
-    const fresh = findById(req.user.id);
+  router.get('/auth/me', requireAuth, async (req, res) => {
+    const fresh = await findById(req.user.id);
     if (!fresh) {
       return res.status(401).json({ success: false, error: 'User not found' });
     }
@@ -192,9 +200,9 @@ export function apiRouter(testManager, wss) {
   // ─── Admin: user management (admin role only) ──────────────────────────────
 
   /** GET /api/admin/users */
-  router.get('/admin/users', requireAuth, requireAdmin, (req, res) => {
+  router.get('/admin/users', requireAuth, requireAdmin, async (req, res) => {
     try {
-      res.json({ success: true, data: getAllUsers() });
+      res.json({ success: true, data: await getAllUsers() });
     } catch (error) {
       logRouteFailure(req, error, 'api_handler_error', 500);
       res.status(500).json({ success: false, error: safeError(error) });
@@ -202,9 +210,9 @@ export function apiRouter(testManager, wss) {
   });
 
   /** GET /api/admin/access — global login suspension flag */
-  router.get('/admin/access', requireAuth, requireAdmin, (req, res) => {
+  router.get('/admin/access', requireAuth, requireAdmin, async (req, res) => {
     try {
-      res.json({ success: true, data: { globalLoginBan: getGlobalLoginBan() } });
+      res.json({ success: true, data: { globalLoginBan: await getGlobalLoginBan() } });
     } catch (error) {
       logRouteFailure(req, error, 'api_handler_error', 500);
       res.status(500).json({ success: false, error: safeError(error) });
@@ -212,11 +220,11 @@ export function apiRouter(testManager, wss) {
   });
 
   /** PUT /api/admin/access/global-ban — suspend logins for everyone except admins */
-  router.put('/admin/access/global-ban', requireAuth, requireAdmin, (req, res) => {
+  router.put('/admin/access/global-ban', requireAuth, requireAdmin, async (req, res) => {
     try {
       const enabled = Boolean(req.body?.enabled);
-      setGlobalLoginBan(enabled);
-      appendAudit({
+      await setGlobalLoginBan(enabled);
+      void appendAudit({
         type: enabled ? 'global_login_ban_enabled' : 'global_login_ban_disabled',
         userId: req.user.id,
         username: req.user.username,
@@ -237,10 +245,10 @@ export function apiRouter(testManager, wss) {
   });
 
   /** POST /api/admin/users/ban-all — suspend all non-admin accounts (admin role is never banned) */
-  router.post('/admin/users/ban-all', requireAuth, requireAdmin, (req, res) => {
+  router.post('/admin/users/ban-all', requireAuth, requireAdmin, async (req, res) => {
     try {
-      const { bannedCount } = banAllNonAdminUsers();
-      appendAudit({
+      const { bannedCount } = await banAllNonAdminUsers();
+      void appendAudit({
         type: 'users_ban_all',
         userId: req.user.id,
         username: req.user.username,
@@ -252,7 +260,7 @@ export function apiRouter(testManager, wss) {
       });
       const suspendMsg =
         'Your account has been suspended. You cannot use this platform until an administrator removes the ban.';
-      for (const u of getAllUsers()) {
+      for (const u of await getAllUsers()) {
         if (u.role !== 'admin' && u.banned) {
           kickUser(wss, u.id, suspendMsg);
         }
@@ -265,10 +273,10 @@ export function apiRouter(testManager, wss) {
   });
 
   /** POST /api/admin/users/unban-all — clear banned on every account */
-  router.post('/admin/users/unban-all', requireAuth, requireAdmin, (req, res) => {
+  router.post('/admin/users/unban-all', requireAuth, requireAdmin, async (req, res) => {
     try {
-      const { unbannedCount } = unbanAllUsers();
-      appendAudit({
+      const { unbannedCount } = await unbanAllUsers();
+      void appendAudit({
         type: 'users_unban_all',
         userId: req.user.id,
         username: req.user.username,
@@ -317,7 +325,7 @@ export function apiRouter(testManager, wss) {
         permissions || { teams: [], modes: [] },
         limits || { enabled: false, maxVus: 50, maxDurationMinutes: 30 }
       );
-      appendAudit({
+      void appendAudit({
         type: 'user_created',
         userId: req.user.id,
         username: req.user.username,
@@ -343,8 +351,8 @@ export function apiRouter(testManager, wss) {
           .status(400)
           .json({ success: false, error: 'Body must include banned as a boolean' });
       }
-      const user = setUserBanned(req.params.id, raw);
-      appendAudit({
+      const user = await setUserBanned(req.params.id, raw);
+      void appendAudit({
         type: 'user_updated',
         userId: req.user.id,
         username: req.user.username,
@@ -376,7 +384,7 @@ export function apiRouter(testManager, wss) {
         }
       }
       const user = await updateUser(req.params.id, req.body);
-      appendAudit({
+      void appendAudit({
         type: 'user_updated',
         userId: req.user.id,
         username: req.user.username,
@@ -405,8 +413,8 @@ export function apiRouter(testManager, wss) {
       if (req.params.id === req.user.id) {
         return res.status(400).json({ success: false, error: 'Cannot delete your own account' });
       }
-      const targetUser = deleteUser(req.params.id);
-      appendAudit({
+      const targetUser = await deleteUser(req.params.id);
+      void appendAudit({
         type: 'user_deleted',
         userId: req.user.id,
         username: req.user.username,
@@ -429,16 +437,16 @@ export function apiRouter(testManager, wss) {
   // ─── Password reset ───────────────────────────────────────────────────────
 
   /** POST /api/admin/users/:id/reset-link — admin generates a reset link */
-  router.post('/admin/users/:id/reset-link', requireAuth, requireAdmin, (req, res) => {
+  router.post('/admin/users/:id/reset-link', requireAuth, requireAdmin, async (req, res) => {
     try {
-      const user = findById(req.params.id);
+      const user = await findById(req.params.id);
       if (!user) {
         return res.status(404).json({ success: false, error: 'User not found' });
       }
-      const entry = createReset(user.id, user.username);
+      const entry = await createReset(user.id, user.username);
       // SECURITY: Use APP_BASE_URL (set via env) to prevent Host-header injection.
       const link = `${APP_BASE_URL}/reset?token=${entry.token}`;
-      appendAudit({
+      void appendAudit({
         type: 'reset_link_created',
         userId: req.user.id,
         username: req.user.username,
@@ -456,8 +464,8 @@ export function apiRouter(testManager, wss) {
   });
 
   /** GET /api/reset/:token — validate a reset token (public) */
-  router.get('/reset/:token', (req, res) => {
-    const entry = getResetByToken(req.params.token);
+  router.get('/reset/:token', async (req, res) => {
+    const entry = await getResetByToken(req.params.token);
     if (!entry) {
       return res.status(400).json({ success: false, error: 'Reset link is invalid or expired' });
     }
@@ -467,11 +475,11 @@ export function apiRouter(testManager, wss) {
   /** POST /api/reset/:token — submit new password (public) */
   router.post('/reset/:token', async (req, res) => {
     try {
-      const entry = getResetByToken(req.params.token);
+      const entry = await getResetByToken(req.params.token);
       if (!entry) {
         return res.status(400).json({ success: false, error: 'Reset link is invalid or expired' });
       }
-      const acct = findById(entry.userId);
+      const acct = await findById(entry.userId);
       if (acct?.banned) {
         return res.status(403).json({
           success: false,
@@ -485,8 +493,8 @@ export function apiRouter(testManager, wss) {
         return res.status(400).json({ success: false, error: pwErr });
       }
       await updateUser(entry.userId, { password });
-      consumeReset(entry.token);
-      appendAudit({
+      await consumeReset(entry.token);
+      void appendAudit({
         type: 'password_reset',
         userId: entry.userId,
         username: entry.username,
@@ -505,9 +513,9 @@ export function apiRouter(testManager, wss) {
   // ─── Invites (admin only to create/list/revoke; public to validate/accept) ─
 
   /** GET /api/admin/invites — list all pending invites */
-  router.get('/admin/invites', requireAuth, requireAdmin, (req, res) => {
+  router.get('/admin/invites', requireAuth, requireAdmin, async (req, res) => {
     try {
-      res.json({ success: true, data: getAllInvites() });
+      res.json({ success: true, data: await getAllInvites() });
     } catch (error) {
       logRouteFailure(req, error, 'api_handler_error', 500);
       res.status(500).json({ success: false, error: safeError(error) });
@@ -515,7 +523,7 @@ export function apiRouter(testManager, wss) {
   });
 
   /** POST /api/admin/invites — create invite link */
-  router.post('/admin/invites', requireAuth, requireAdmin, (req, res) => {
+  router.post('/admin/invites', requireAuth, requireAdmin, async (req, res) => {
     try {
       const { email, role, permissions, limits } = req.body;
       if (!email) {
@@ -528,7 +536,7 @@ export function apiRouter(testManager, wss) {
           .status(400)
           .json({ success: false, error: `Role must be one of: ${INVITE_VALID_ROLES.join(', ')}` });
       }
-      const invite = createInvite(
+      const invite = await createInvite(
         email,
         inviteRole,
         req.user.username,
@@ -537,7 +545,7 @@ export function apiRouter(testManager, wss) {
       );
       // SECURITY: Use APP_BASE_URL (set via env) to prevent Host-header injection.
       const link = `${APP_BASE_URL}/invite?token=${invite.token}`;
-      appendAudit({
+      void appendAudit({
         type: 'invite_created',
         userId: req.user.id,
         username: req.user.username,
@@ -555,10 +563,10 @@ export function apiRouter(testManager, wss) {
   });
 
   /** DELETE /api/admin/invites/:token — revoke an invite */
-  router.delete('/admin/invites/:token', requireAuth, requireAdmin, (req, res) => {
+  router.delete('/admin/invites/:token', requireAuth, requireAdmin, async (req, res) => {
     try {
-      const revoked = revokeInvite(req.params.token);
-      appendAudit({
+      const revoked = await revokeInvite(req.params.token);
+      void appendAudit({
         type: 'invite_revoked',
         userId: req.user.id,
         username: req.user.username,
@@ -576,8 +584,8 @@ export function apiRouter(testManager, wss) {
   });
 
   /** GET /api/invite/:token — validate token (public) */
-  router.get('/invite/:token', (req, res) => {
-    const peek = peekInviteByToken(req.params.token);
+  router.get('/invite/:token', async (req, res) => {
+    const peek = await peekInviteByToken(req.params.token);
     if (peek.status === 'missing' || peek.status === 'expired') {
       return res.status(404).json({ success: false, error: 'Invite link is invalid or expired' });
     }
@@ -597,7 +605,7 @@ export function apiRouter(testManager, wss) {
   /** POST /api/invite/:token/accept — complete registration (public) */
   router.post('/invite/:token/accept', async (req, res) => {
     try {
-      const invite = getInviteByToken(req.params.token);
+      const invite = await getInviteByToken(req.params.token);
       if (!invite) {
         return res.status(400).json({ success: false, error: 'Invite link is invalid or expired' });
       }
@@ -629,8 +637,8 @@ export function apiRouter(testManager, wss) {
         invite.permissions || { teams: [], modes: [] },
         invite.limits || { enabled: false, maxVus: 50, maxDurationMinutes: 30 }
       );
-      consumeInvite(invite.token);
-      appendAudit({
+      await consumeInvite(invite.token);
+      void appendAudit({
         type: 'invite_accepted',
         userId: user.id,
         username: user.username,
@@ -641,7 +649,7 @@ export function apiRouter(testManager, wss) {
         details: { targetEmail: invite.email, invitedBy: invite.createdBy },
       });
 
-      const sessionUser = bumpTokenVersion(user.id);
+      const sessionUser = await bumpTokenVersion(user.id);
       const token = signToken({
         id: sessionUser.id,
         username: sessionUser.username,
@@ -660,11 +668,11 @@ export function apiRouter(testManager, wss) {
   // ─── Audit log (admin only) ───────────────────────────────────────────────
 
   /** GET /api/admin/audit */
-  router.get('/admin/audit', requireAuth, requireAdmin, (req, res) => {
+  router.get('/admin/audit', requireAuth, requireAdmin, async (req, res) => {
     try {
       const { limit, type, username, search } = req.query;
       const parsedLimit = parseInt(limit, 10);
-      const entries = getAuditLog({
+      const entries = await getAuditLog({
         limit: limit && !isNaN(parsedLimit) ? Math.min(Math.max(parsedLimit, 1), 1000) : 200,
         type: type || undefined,
         username: username || undefined,
@@ -678,7 +686,7 @@ export function apiRouter(testManager, wss) {
   });
 
   /** DELETE /api/admin/audit — clear all log entries (requires ?confirm=yes) */
-  router.delete('/admin/audit', requireAuth, requireAdmin, (req, res) => {
+  router.delete('/admin/audit', requireAuth, requireAdmin, async (req, res) => {
     try {
       // SECURITY: Require explicit confirmation to prevent accidental (or malicious)
       // log deletion. Pass ?confirm=yes in the query string to proceed.
@@ -688,8 +696,8 @@ export function apiRouter(testManager, wss) {
           error: 'Pass ?confirm=yes to permanently delete all audit log entries.',
         });
       }
-      clearAuditLog();
-      appendAudit({
+      await clearAuditLog();
+      void appendAudit({
         type: 'audit_cleared',
         userId: req.user.id,
         username: req.user.username,
@@ -808,7 +816,7 @@ export function apiRouter(testManager, wss) {
           id: req.user.id,
           username: req.user.username,
         });
-        appendAudit({
+        void appendAudit({
           type: 'test_run',
           userId: req.user.id,
           username: req.user.username,
@@ -939,7 +947,7 @@ export function apiRouter(testManager, wss) {
           id: req.user.id,
           username: req.user.username,
         });
-        appendAudit({
+        void appendAudit({
           type: 'test_load_update',
           userId: req.user.id,
           username: req.user.username,
@@ -975,7 +983,7 @@ export function apiRouter(testManager, wss) {
         });
       }
       const data = testManager.pauseTest({ id: req.user.id, username: req.user.username });
-      appendAudit({
+      void appendAudit({
         type: 'test_pause',
         userId: req.user.id,
         username: req.user.username,
@@ -1015,7 +1023,7 @@ export function apiRouter(testManager, wss) {
       }
 
       const result = await testManager.resumeTest({ id: req.user.id, username: req.user.username });
-      appendAudit({
+      void appendAudit({
         type: 'test_resume',
         userId: req.user.id,
         username: req.user.username,
@@ -1049,7 +1057,7 @@ export function apiRouter(testManager, wss) {
   function clearAllHistoryHandler(req, res) {
     try {
       const data = testManager.clearAllTestHistory();
-      appendAudit({
+      void appendAudit({
         type: 'history_cleared',
         userId: req.user.id,
         username: req.user.username,
@@ -1137,7 +1145,7 @@ export function apiRouter(testManager, wss) {
       }
 
       const result = await testManager.createCurlTest(testName, request, options || {});
-      appendAudit({
+      void appendAudit({
         type: 'curl_upload',
         userId: req.user.id,
         username: req.user.username,
@@ -1181,7 +1189,7 @@ export function apiRouter(testManager, wss) {
       }
 
       const result = await testManager.createCurlChainTest(testName, steps, options || {});
-      appendAudit({
+      void appendAudit({
         type: 'curl_upload',
         userId: req.user.id,
         username: req.user.username,

@@ -1,13 +1,22 @@
-# Environment files
+# Environment files (never commit secrets)
 .env
 .env.*
 !.env.example
 
-# Runtime data stores (users, invites, resets, audit — contain hashed passwords and tokens)
+# Runtime data stores (users, invites, resets, audit — hashed passwords / tokens)
 data/*.json
+!data/.gitkeep
 
-# Reports
+# Reports & logs
 reports/
+!reports/.gitkeep
+logs/
+!logs/.gitkeep
+*.log
+test-results/
+coverage/
+
+# Generic artifacts (keep package manifests)
 *.json
 !package.json
 !package-lock.json
@@ -19,10 +28,6 @@ reports/
 !public/login.html
 !public/invite.html
 !public/reset.html
-
-# Logs
-logs/
-*.log
 
 # k6 cloud results
 cloud-results/
@@ -48,3 +53,5 @@ Thumbs.db
 public/dist/
 public/index.bundled.html
 
+# Docker
+*.tar

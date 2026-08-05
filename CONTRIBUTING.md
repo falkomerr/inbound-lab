@@ -19,27 +19,11 @@ guidelines and instructions for contributing.
 
 ## 🤝 Code of Conduct
 
-### Our Pledge
+Please read and follow our [CODE_OF_CONDUCT.md](./CODE_OF_CONDUCT.md).
 
-We are committed to providing a welcoming and inspiring community for all. Please be respectful and
-constructive in all interactions.
-
-### Our Standards
-
-**Positive behavior includes:**
-
-- Using welcoming and inclusive language
-- Being respectful of differing viewpoints
-- Gracefully accepting constructive criticism
-- Focusing on what is best for the community
-- Showing empathy towards other community members
-
-**Unacceptable behavior includes:**
-
-- Trolling, insulting/derogatory comments, and personal attacks
-- Public or private harassment
-- Publishing others' private information without permission
-- Other conduct which could reasonably be considered inappropriate
+We are committed to a welcoming, respectful community. Unacceptable behavior
+(harassment, insults, publishing private information, etc.) may result in
+moderation actions by maintainers.
 
 ---
 
@@ -49,9 +33,10 @@ constructive in all interactions.
 
 Before contributing, ensure you have:
 
-- Node.js (v18.0.0 or higher)
+- Node.js (v18.0.0 or higher; v20 LTS recommended — see `.nvmrc`)
 - npm (v8.0.0 or higher)
 - k6 (v1.7.1 or higher)
+- Docker (optional — for MySQL via `docker compose up -d mysql`)
 - Git
 - A code editor (VS Code recommended)
 
@@ -69,39 +54,30 @@ Before contributing, ensure you have:
 ### 1. Fork and Clone
 
 ```bash
-# Fork the repository on GitLab/GitHub
-# Then clone your fork
+# Fork the repository on GitHub, then:
 git clone https://github.com/YOUR_USERNAME/load-test-platform.git
 cd load-test-platform
 ```
 
-### 2. Install Dependencies
+### 2. Install & configure
 
 ```bash
-npm install
+npm ci
+cp env.example .env
+# Set JWT_SECRET in .env — generate with:
+# node -e "console.log(require('crypto').randomBytes(48).toString('hex'))"
+docker compose up -d mysql   # optional but recommended
+npm run install:k6
 ```
 
-### 3. Setup Environment
+For a quick JSON-file backend during unit work, omit `MYSQL_*` or set `STORAGE_BACKEND=json`.
+
+### 3. Verify Setup
 
 ```bash
-# Copy environment example
-cp env.example .env.development
-
-# Edit .env.development with your settings
-nano .env.development
-```
-
-### 4. Verify Setup
-
-```bash
-# Run validation
 npm run validate:config
-
-# Run unit tests
+npm run lint
 npm test
-
-# Run a smoke test
-npm run test:smoke
 ```
 
 ---

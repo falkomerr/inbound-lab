@@ -19,7 +19,9 @@ describe('userStore', () => {
   });
 
   async function store() {
-    const { mod, cleanup: removeDir } = await loadWithIsolatedData('../../server/userStore.js');
+    const { mod, cleanup: removeDir } = await loadWithIsolatedData(
+      '../../server/stores/json/userStore.js'
+    );
     cleanup = removeDir;
     return mod;
   }

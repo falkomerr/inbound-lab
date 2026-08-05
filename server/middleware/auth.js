@@ -41,41 +41,47 @@ function extractToken(req) {
 }
 
 /** Require a valid JWT — blocks with 401 if missing/invalid/stale. */
-export function requireAuth(req, res, next) {
-  const token = extractToken(req);
-  if (!token) {
-    return res.status(401).json({ success: false, error: 'Authentication required' });
-  }
-  const payload = verifyToken(token);
-  if (!payload) {
-    return res.status(401).json({ success: false, error: 'Invalid or expired token' });
-  }
+export async function requireAuth(req, res, next) {
+  try {
+    const token = extractToken(req);
+    if (!token) {
+      return res.status(401).json({ success: false, error: 'Authentication required' });
+    }
+    const payload = verifyToken(token);
+    if (!payload) {
+      return res.status(401).json({ success: false, error: 'Invalid or expired token' });
+    }
 
-  // Check tokenVersion: if an admin updated this user, their tokenVersion
-  // in the store will be higher than the one embedded in the JWT.
-  // This forces a re-login so they get a fresh token with updated data.
-  const freshUser = findById(payload.id);
-  if (!freshUser) {
-    return res.status(401).json({ success: false, error: 'User not found' });
-  }
-  if (freshUser.banned && freshUser.role !== 'admin') {
-    return res.status(401).json({ success: false, error: 'Account suspended' });
-  }
-  if (getGlobalLoginBan() && freshUser.role !== 'admin') {
-    return res.status(401).json({
-      success: false,
-      error: 'Logins are temporarily suspended. Only administrators may use the platform.',
-    });
-  }
-  const jwtVersion = payload.tokenVersion ?? 1;
-  const storeVersion = freshUser.tokenVersion ?? 1;
-  if (jwtVersion !== storeVersion) {
-    return res.status(401).json({ success: false, error: 'Session expired. Please log in again.' });
-  }
+    // Check tokenVersion: if an admin updated this user, their tokenVersion
+    // in the store will be higher than the one embedded in the JWT.
+    // This forces a re-login so they get a fresh token with updated data.
+    const freshUser = await findById(payload.id);
+    if (!freshUser) {
+      return res.status(401).json({ success: false, error: 'User not found' });
+    }
+    if (freshUser.banned && freshUser.role !== 'admin') {
+      return res.status(401).json({ success: false, error: 'Account suspended' });
+    }
+    if ((await getGlobalLoginBan()) && freshUser.role !== 'admin') {
+      return res.status(401).json({
+        success: false,
+        error: 'Logins are temporarily suspended. Only administrators may use the platform.',
+      });
+    }
+    const jwtVersion = payload.tokenVersion ?? 1;
+    const storeVersion = freshUser.tokenVersion ?? 1;
+    if (jwtVersion !== storeVersion) {
+      return res
+        .status(401)
+        .json({ success: false, error: 'Session expired. Please log in again.' });
+    }
 
-  // Use fresh data from store so limits/role/permissions are always current
-  req.user = freshUser;
-  next();
+    // Use fresh data from store so limits/role/permissions are always current
+    req.user = freshUser;
+    next();
+  } catch (err) {
+    next(err);
+  }
 }
 
 /** Require admin role — must be used after requireAuth. */

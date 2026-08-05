@@ -19,6 +19,7 @@ import { apiRouter } from './routes/api.js';
 import { verifyToken } from './middleware/auth.js';
 import { findById } from './userStore.js';
 import { getGlobalLoginBan } from './accessControlStore.js';
+import { initStorage, useMysqlStorage, pingPool } from './db/index.js';
 import { wsRoutine, wsWarn, wsError } from '../utils/wsLog.js';
 import { logger } from '../utils/logger.js';
 
@@ -296,101 +297,103 @@ const testManager = new TestManager();
 // who can reach the port from subscribing to live test output (which may
 // contain credentials passed via customEnv).
 wss.on('connection', (ws, req) => {
-  try {
-    const upgradeUrl = new URL(req.url, 'http://localhost');
-    const token = upgradeUrl.searchParams.get('token');
-    const payload = token ? verifyToken(token) : null;
+  void (async () => {
+    try {
+      const upgradeUrl = new URL(req.url, 'http://localhost');
+      const token = upgradeUrl.searchParams.get('token');
+      const payload = token ? verifyToken(token) : null;
 
-    if (!payload) {
-      wsWarn('handshake_rejected', { reason: 'missing_or_invalid_token' });
-      ws.close(1008, 'Unauthorized: valid JWT required');
-      return;
-    }
+      if (!payload) {
+        wsWarn('handshake_rejected', { reason: 'missing_or_invalid_token' });
+        ws.close(1008, 'Unauthorized: valid JWT required');
+        return;
+      }
 
-    // Verify tokenVersion against the store — rejects stale tokens
-    // issued before the user's role/permissions/limits were updated.
-    const freshUser = findById(payload.id);
-    if (!freshUser || (freshUser.tokenVersion ?? 1) !== (payload.tokenVersion ?? 1)) {
-      wsWarn('handshake_rejected', {
-        reason: 'session_stale_or_unknown_user',
-        username: payload.username,
-        userId: payload.id,
-      });
-      ws.close(1008, 'Session expired. Please log in again.');
-      return;
-    }
+      // Verify tokenVersion against the store — rejects stale tokens
+      // issued before the user's role/permissions/limits were updated.
+      const freshUser = await findById(payload.id);
+      if (!freshUser || (freshUser.tokenVersion ?? 1) !== (payload.tokenVersion ?? 1)) {
+        wsWarn('handshake_rejected', {
+          reason: 'session_stale_or_unknown_user',
+          username: payload.username,
+          userId: payload.id,
+        });
+        ws.close(1008, 'Session expired. Please log in again.');
+        return;
+      }
 
-    if (freshUser.banned && freshUser.role !== 'admin') {
-      wsWarn('handshake_rejected', {
-        reason: 'account_banned',
-        username: payload.username,
-        userId: payload.id,
-      });
-      ws.close(1008, 'Account suspended');
-      return;
-    }
-    if (getGlobalLoginBan() && freshUser.role !== 'admin') {
-      wsWarn('handshake_rejected', {
-        reason: 'global_login_ban',
-        username: payload.username,
-        userId: payload.id,
-      });
-      ws.close(1008, 'Logins suspended');
-      return;
-    }
+      if (freshUser.banned && freshUser.role !== 'admin') {
+        wsWarn('handshake_rejected', {
+          reason: 'account_banned',
+          username: payload.username,
+          userId: payload.id,
+        });
+        ws.close(1008, 'Account suspended');
+        return;
+      }
+      if ((await getGlobalLoginBan()) && freshUser.role !== 'admin') {
+        wsWarn('handshake_rejected', {
+          reason: 'global_login_ban',
+          username: payload.username,
+          userId: payload.id,
+        });
+        ws.close(1008, 'Logins suspended');
+        return;
+      }
 
-    ws.user = freshUser;
-    ws.traceId = randomUUID();
+      ws.user = freshUser;
+      ws.traceId = randomUUID();
 
-    // Send current test status
-    ws.send(
-      JSON.stringify({
-        type: 'status',
-        data: testManager.getStatus(),
-      })
-    );
+      // Send current test status
+      ws.send(
+        JSON.stringify({
+          type: 'status',
+          data: testManager.getStatus(),
+        })
+      );
 
-    // Handle messages from client
-    ws.on('message', (message) => {
-      try {
-        const data = JSON.parse(message);
-        if (data.type === 'subscribe') {
-          testManager.addSubscriber(ws);
+      // Handle messages from client
+      ws.on('message', (message) => {
+        try {
+          const data = JSON.parse(message);
+          if (data.type === 'subscribe') {
+            testManager.addSubscriber(ws);
+          }
+        } catch (error) {
+          wsWarn('client_message_invalid_json', {
+            traceId: ws.traceId,
+            username: ws.user?.username,
+            userId: ws.user?.id,
+            error: error.message,
+          });
         }
-      } catch (error) {
-        wsWarn('client_message_invalid_json', {
+      });
+
+      ws.on('close', (code, reasonBuf) => {
+        const reason = Buffer.isBuffer(reasonBuf)
+          ? reasonBuf.toString('utf8')
+          : String(reasonBuf || '');
+        testManager.removeSubscriber(ws);
+        const abnormal = code !== 1000 && code !== 1001;
+        const fields = {
           traceId: ws.traceId,
           username: ws.user?.username,
           userId: ws.user?.id,
-          error: error.message,
-        });
-      }
-    });
-
-    ws.on('close', (code, reasonBuf) => {
-      const reason = Buffer.isBuffer(reasonBuf)
-        ? reasonBuf.toString('utf8')
-        : String(reasonBuf || '');
-      testManager.removeSubscriber(ws);
-      const abnormal = code !== 1000 && code !== 1001;
-      const fields = {
-        traceId: ws.traceId,
-        username: ws.user?.username,
-        userId: ws.user?.id,
-        closeCode: code,
-        closeReason: reason.slice(0, 200),
-        subscribers: testManager.getLiveSubscriberCount(),
-      };
-      if (abnormal) {
-        wsWarn('socket_closed', { ...fields, note: 'non-normal_close_code' });
-      } else {
-        wsRoutine('socket_closed', fields);
-      }
-    });
-  } catch (err) {
-    wsError('connection_handler_error', { traceId: ws?.traceId, err });
-    ws.close(1011, 'Internal error');
-  }
+          closeCode: code,
+          closeReason: reason.slice(0, 200),
+          subscribers: testManager.getLiveSubscriberCount(),
+        };
+        if (abnormal) {
+          wsWarn('socket_closed', { ...fields, note: 'non-normal_close_code' });
+        } else {
+          wsRoutine('socket_closed', fields);
+        }
+      });
+    } catch (err) {
+      wsError('connection_handler_error', { traceId: ws?.traceId, err });
+      ws.close(1011, 'Internal error');
+    }
+  })();
 });
 
 // API routes — auth is enforced per-route inside apiRouter
@@ -416,19 +419,41 @@ app.get('/', (req, res) => {
   res.sendFile(join(publicRoot, htmlFile));
 });
 
-// Start server
-server.listen(PORT, () => {
-  logger.info(
-    {
-      event: 'server_listen',
-      port: Number(PORT),
-      url: `http://localhost:${PORT}`,
-      logLevel: logger.level,
-      uiBundle: uiBundleActive,
-    },
-    'server_listen'
-  );
-});
+// Start server after storage is ready (MySQL migrate, or JSON no-op)
+async function start() {
+  try {
+    const storage = await initStorage();
+    logger.info(
+      {
+        event: 'storage_ready',
+        backend: storage.backend,
+        ...(storage.backend === 'mysql'
+          ? { host: storage.host, port: storage.port, database: storage.database }
+          : {}),
+      },
+      'storage_ready'
+    );
+  } catch (err) {
+    logger.fatal({ event: 'storage_init_failed', err }, 'storage_init_failed');
+    process.exit(1);
+  }
+
+  server.listen(PORT, () => {
+    logger.info(
+      {
+        event: 'server_listen',
+        port: Number(PORT),
+        url: `http://localhost:${PORT}`,
+        logLevel: logger.level,
+        uiBundle: uiBundleActive,
+        storage: useMysqlStorage() ? 'mysql' : 'json',
+      },
+      'server_listen'
+    );
+  });
+}
+
+start();
 
 // Handle server errors
 server.on('error', (error) => {
@@ -449,4 +474,4 @@ server.on('error', (error) => {
   }
 });
 
-export { app, server, testManager };
+export { app, server, testManager, pingPool };

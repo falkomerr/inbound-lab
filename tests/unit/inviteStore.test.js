@@ -24,7 +24,9 @@ describe('inviteStore', () => {
   });
 
   async function invites() {
-    const { mod, cleanup: removeDir } = await loadWithIsolatedData('../../server/inviteStore.js');
+    const { mod, cleanup: removeDir } = await loadWithIsolatedData(
+      '../../server/stores/json/inviteStore.js'
+    );
     cleanup = removeDir;
     return mod;
   }

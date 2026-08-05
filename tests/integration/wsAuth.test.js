@@ -110,7 +110,7 @@ describe('WebSocket auth integration', () => {
       tokenVersion: user.tokenVersion,
     });
     const { bumpTokenVersion } = await import(`../../server/userStore.js?ws=${Date.now()}`);
-    bumpTokenVersion(user.id);
+    await bumpTokenVersion(user.id);
 
     const result = await connectWsUntilClose(
       `${ctx.wsBase}?token=${encodeURIComponent(staleToken)}`

@@ -60,44 +60,46 @@ export async function createIntegrationServer() {
   const wss = new WebSocketServer({ server });
 
   wss.on('connection', (ws, req) => {
-    try {
-      const upgradeUrl = new URL(req.url, 'http://localhost');
-      const token = upgradeUrl.searchParams.get('token');
-      const payload = token ? verifyToken(token) : null;
-      if (!payload) {
-        ws.close(1008, 'Unauthorized: valid JWT required');
-        return;
-      }
-      const freshUser = findById(payload.id);
-      if (!freshUser || (freshUser.tokenVersion ?? 1) !== (payload.tokenVersion ?? 1)) {
-        ws.close(1008, 'Session expired. Please log in again.');
-        return;
-      }
-      if (freshUser.banned && freshUser.role !== 'admin') {
-        ws.close(1008, 'Account suspended');
-        return;
-      }
-      if (getGlobalLoginBan() && freshUser.role !== 'admin') {
-        ws.close(1008, 'Logins suspended');
-        return;
-      }
-      ws.user = freshUser;
-      ws.traceId = randomUUID();
-      ws.send(JSON.stringify({ type: 'status', data: testManager.getStatus() }));
-      ws.on('message', (message) => {
-        try {
-          const data = JSON.parse(message);
-          if (data.type === 'subscribe') {
-            testManager.addSubscriber(ws);
-          }
-        } catch {
-          /* ignore invalid client messages */
+    void (async () => {
+      try {
+        const upgradeUrl = new URL(req.url, 'http://localhost');
+        const token = upgradeUrl.searchParams.get('token');
+        const payload = token ? verifyToken(token) : null;
+        if (!payload) {
+          ws.close(1008, 'Unauthorized: valid JWT required');
+          return;
         }
-      });
-      ws.on('close', () => testManager.removeSubscriber(ws));
-    } catch {
-      ws.close(1011, 'Internal error');
-    }
+        const freshUser = await findById(payload.id);
+        if (!freshUser || (freshUser.tokenVersion ?? 1) !== (payload.tokenVersion ?? 1)) {
+          ws.close(1008, 'Session expired. Please log in again.');
+          return;
+        }
+        if (freshUser.banned && freshUser.role !== 'admin') {
+          ws.close(1008, 'Account suspended');
+          return;
+        }
+        if ((await getGlobalLoginBan()) && freshUser.role !== 'admin') {
+          ws.close(1008, 'Logins suspended');
+          return;
+        }
+        ws.user = freshUser;
+        ws.traceId = randomUUID();
+        ws.send(JSON.stringify({ type: 'status', data: testManager.getStatus() }));
+        ws.on('message', (message) => {
+          try {
+            const data = JSON.parse(message);
+            if (data.type === 'subscribe') {
+              testManager.addSubscriber(ws);
+            }
+          } catch {
+            /* ignore invalid client messages */
+          }
+        });
+        ws.on('close', () => testManager.removeSubscriber(ws));
+      } catch {
+        ws.close(1011, 'Internal error');
+      }
+    })();
   });
 
   app.use('/api', apiRouter(testManager, wss));

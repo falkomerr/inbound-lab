@@ -52,12 +52,9 @@ describe('_buildStringExpr placeholders', () => {
   it('substitutes placeholders in URLs and headers', () => {
     assert.equal(
       manager._buildStringExpr('https://api.example.com/items/{{ id }}'),
-      '`https://api.example.com/items/${vars[\'id\']}`'
+      "`https://api.example.com/items/${vars['id']}`"
     );
-    assert.equal(
-      manager._buildStringExpr('Bearer {{ token }}'),
-      '`Bearer ${vars[\'token\']}`'
-    );
+    assert.equal(manager._buildStringExpr('Bearer {{ token }}'), "`Bearer ${vars['token']}`");
   });
 
   it('leaves plain strings as JSON literals', () => {

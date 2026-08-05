@@ -13,8 +13,7 @@ const root = resolve(__dirname, '..');
 const indexPath = resolve(root, 'public/index.html');
 const bundledIndexPath = resolve(root, 'public/index.bundled.html');
 
-const BUNDLE_SCRIPT =
-  '  <script type="module" src="/dist/dashboard.js"></script>\n';
+const BUNDLE_SCRIPT = '  <script type="module" src="/dist/dashboard.js"></script>\n';
 
 async function main() {
   await build({

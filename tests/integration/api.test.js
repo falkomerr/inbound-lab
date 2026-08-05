@@ -192,7 +192,7 @@ describe('API integration', () => {
     const { setGlobalLoginBan } = await import(
       `../../server/accessControlStore.js?ban=${Date.now()}`
     );
-    setGlobalLoginBan(true);
+    await setGlobalLoginBan(true);
     await createUser('banned-login', 'ValidPass123!', 'developer');
     const res = await fetch(`${baseUrl}/auth/login`, {
       method: 'POST',
@@ -203,7 +203,7 @@ describe('API integration', () => {
     const body = await res.json();
     assert.equal(body.success, false);
     assert.match(body.error, /suspended/i);
-    setGlobalLoginBan(false);
+    await setGlobalLoginBan(false);
   });
 
   it('GET /tests lists scenarios for authenticated developer', async () => {

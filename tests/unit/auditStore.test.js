@@ -19,7 +19,9 @@ describe('auditStore', () => {
   });
 
   async function audit() {
-    const { mod, cleanup: removeDir } = await loadWithIsolatedData('../../server/auditStore.js');
+    const { mod, cleanup: removeDir } = await loadWithIsolatedData(
+      '../../server/stores/json/auditStore.js'
+    );
     cleanup = removeDir;
     return mod;
   }

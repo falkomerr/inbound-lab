@@ -19,9 +19,10 @@ import { apiRouter } from './routes/api.js';
 import { verifyToken } from './middleware/auth.js';
 import { findById } from './userStore.js';
 import { getGlobalLoginBan } from './accessControlStore.js';
-import { initStorage, useMysqlStorage, pingPool } from './db/index.js';
+import { initStorage, useMysqlStorage, pingPool, closePool } from './db/index.js';
 import { wsRoutine, wsWarn, wsError } from '../utils/wsLog.js';
 import { logger } from '../utils/logger.js';
+import { getK6Info } from './k6Info.js';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = dirname(__filename);
@@ -438,7 +439,8 @@ async function start() {
     process.exit(1);
   }
 
-  server.listen(PORT, () => {
+  server.listen(PORT, async () => {
+    const k6 = await getK6Info();
     logger.info(
       {
         event: 'server_listen',
@@ -447,6 +449,9 @@ async function start() {
         logLevel: logger.level,
         uiBundle: uiBundleActive,
         storage: useMysqlStorage() ? 'mysql' : 'json',
+        appVersion: process.env.APP_VERSION || null,
+        k6Version: k6.version,
+        k6Source: k6.source,
       },
       'server_listen'
     );
@@ -454,6 +459,87 @@ async function start() {
 }
 
 start();
+
+const SHUTDOWN_FORCE_MS = Number(process.env.SHUTDOWN_FORCE_MS || 15000);
+let shuttingDown = false;
+
+async function gracefulShutdown(signal) {
+  if (shuttingDown) {
+    return;
+  }
+  shuttingDown = true;
+  logger.info({ event: 'shutdown_start', signal, forceMs: SHUTDOWN_FORCE_MS }, 'shutdown_start');
+
+  const forceTimer = setTimeout(() => {
+    logger.error({ event: 'shutdown_forced' }, 'shutdown_forced');
+    process.exit(1);
+  }, SHUTDOWN_FORCE_MS);
+  forceTimer.unref?.();
+
+  try {
+    const status = testManager.getStatus();
+    if (status.running || status.pausedForResume) {
+      try {
+        testManager.stopTest({ id: null, username: 'server-shutdown' });
+      } catch (err) {
+        logger.warn({ event: 'shutdown_stop_test_failed', err }, 'shutdown_stop_test_failed');
+      }
+      // Best-effort SIGKILL if child still alive after soft stop
+      const child = testManager.currentTest?.process;
+      if (child?.pid && !child.killed) {
+        await new Promise((r) => {
+          setTimeout(r, Math.min(5000, SHUTDOWN_FORCE_MS / 2));
+        });
+        try {
+          process.kill(child.pid, 'SIGKILL');
+        } catch {
+          /* already exited */
+        }
+      }
+    }
+  } catch (err) {
+    logger.warn({ event: 'shutdown_test_cleanup_failed', err }, 'shutdown_test_cleanup_failed');
+  }
+
+  await new Promise((resolve) => {
+    const timer = setTimeout(resolve, 5000);
+    timer.unref?.();
+    server.close(() => {
+      clearTimeout(timer);
+      resolve();
+    });
+  });
+
+  try {
+    for (const client of wss.clients) {
+      try {
+        client.close(1001, 'Server shutting down');
+      } catch {
+        /* ignore */
+      }
+    }
+    wss.close();
+  } catch (err) {
+    logger.warn({ event: 'shutdown_ws_close_failed', err }, 'shutdown_ws_close_failed');
+  }
+
+  try {
+    await closePool();
+  } catch (err) {
+    logger.warn({ event: 'shutdown_pool_close_failed', err }, 'shutdown_pool_close_failed');
+  }
+
+  clearTimeout(forceTimer);
+  logger.info({ event: 'shutdown_complete', signal }, 'shutdown_complete');
+  process.exit(0);
+}
+
+process.on('SIGTERM', () => {
+  void gracefulShutdown('SIGTERM');
+});
+process.on('SIGINT', () => {
+  void gracefulShutdown('SIGINT');
+});
 
 // Handle server errors
 server.on('error', (error) => {

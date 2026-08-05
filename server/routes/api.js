@@ -45,6 +45,7 @@ import {
 import { createReset, getResetByToken, consumeReset } from '../resetStore.js';
 import { useMysqlStorage, pingPool } from '../db/index.js';
 import { assertEmailAllowed } from '../emailPolicy.js';
+import { getK6Info } from '../k6Info.js';
 import {
   logRouteFailure,
   validatePasswordStrength,
@@ -70,11 +71,17 @@ export function apiRouter(testManager, wss) {
 
   /** GET /api/health — public readiness probe (no auth). */
   router.get('/health', async (req, res) => {
+    const k6 = await getK6Info();
     const data = {
       status: 'ok',
       uptime: process.uptime(),
       timestamp: new Date().toISOString(),
       storage: useMysqlStorage() ? 'mysql' : 'json',
+      version: process.env.APP_VERSION || null,
+      k6: {
+        version: k6.version,
+        source: k6.source,
+      },
     };
     if (useMysqlStorage()) {
       try {
@@ -85,6 +92,22 @@ export function apiRouter(testManager, wss) {
       }
     }
     res.status(data.status === 'ok' ? 200 : 503).json({ success: data.status === 'ok', data });
+  });
+
+  /** GET /api/version — public build / engine metadata (no auth). */
+  router.get('/version', async (req, res) => {
+    const k6 = await getK6Info();
+    res.json({
+      success: true,
+      data: {
+        name: 'fastertest',
+        version: process.env.APP_VERSION || null,
+        k6Version: k6.version,
+        k6Source: k6.source,
+        node: process.version,
+        storage: useMysqlStorage() ? 'mysql' : 'json',
+      },
+    });
   });
 
   // ─── Auth ──────────────────────────────────────────────────────────────────

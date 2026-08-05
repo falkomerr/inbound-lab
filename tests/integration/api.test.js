@@ -83,6 +83,17 @@ describe('API integration', () => {
     assert.equal(body.data.status, 'ok');
     assert.equal(typeof body.data.uptime, 'number');
     assert.ok(body.data.timestamp);
+    assert.ok(body.data.k6);
+    assert.equal(typeof body.data.k6.source, 'string');
+  });
+
+  it('GET /version returns public engine metadata', async () => {
+    const res = await fetch(`${baseUrl}/version`);
+    assert.equal(res.status, 200);
+    const body = await res.json();
+    assert.equal(body.success, true);
+    assert.equal(body.data.name, 'fastertest');
+    assert.ok(body.data.node);
   });
 
   it('GET /tests requires JWT', async () => {

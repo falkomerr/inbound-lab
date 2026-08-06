@@ -26,7 +26,7 @@
 
 ---
 
-## Screenshots
+## See it in action
 
 <p align="center">
   <img src="docs/images/login.jpg" alt="FasterTest login page" width="900" />
@@ -44,7 +44,7 @@
 
 ## Table of contents
 
-- [Screenshots](#screenshots)
+- [See it in action](#see-it-in-action)
 - [What is FasterTest?](#what-is-fastertest)
 - [Why FasterTest?](#why-fastertest)
 - [Who is it for?](#who-is-it-for)

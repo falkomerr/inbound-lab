@@ -54,7 +54,7 @@ services:
       MYSQL_DATABASE: ${MYSQL_DATABASE:-loadtest}
       STORAGE_BACKEND: mysql
       ENV: ${ENV:-staging}
-      BASE_URL: ${BASE_URL:-https://httpbin.org}
+      BASE_URL: ${BASE_URL:-https://httpbingo.org}
       TRUST_PROXY: ${TRUST_PROXY:-}
       K6_VERSION: ${K6_VERSION:-1.8.0}
     volumes:

@@ -47,7 +47,8 @@ async function setupEnvironment() {
     if (!fs.existsSync(envFiles[2].path)) {
       const productionContent = envExampleContent
         .replace(/ENV=staging/, 'ENV=production')
-        .replace(/# BASE_URL=https:\/\/httpbin\.org/, 'BASE_URL=https://httpbin.org')
+        .replace(/# BASE_URL=https:\/\/httpbingo\.org/, 'BASE_URL=https://httpbingo.org')
+        .replace(/# BASE_URL=https:\/\/httpbin\.org/, 'BASE_URL=https://httpbingo.org')
         .replace(/API_TIMEOUT=30000/, 'API_TIMEOUT=60000')
         .replace(/VUS=10/, 'VUS=20')
         .replace(/DURATION=30s/, 'DURATION=10m')
@@ -71,7 +72,8 @@ async function setupEnvironment() {
     if (!fs.existsSync(envFiles[1].path)) {
       const stagingContent = envExampleContent
         .replace(/ENV=staging/, 'ENV=staging')
-        .replace(/# BASE_URL=https:\/\/httpbin\.org/, 'BASE_URL=https://httpbin.org')
+        .replace(/# BASE_URL=https:\/\/httpbingo\.org/, 'BASE_URL=https://httpbingo.org')
+        .replace(/# BASE_URL=https:\/\/httpbin\.org/, 'BASE_URL=https://httpbingo.org')
         .replace(/API_TIMEOUT=30000/, 'API_TIMEOUT=30000')
         .replace(/VUS=10/, 'VUS=10')
         .replace(/DURATION=30s/, 'DURATION=5m')

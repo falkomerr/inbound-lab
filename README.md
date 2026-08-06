@@ -134,7 +134,8 @@ npm run seed:admin -- admin 'YourStr0ng!Pass'
 npm run ui
 ```
 
-Open **http://localhost:3001** → login → run **Sample: HTTP GET**.
+Open **http://localhost:3001** → login → run **Sample: HTTP GET** (demo target:
+[httpbingo.org](https://httpbingo.org); set `BASE_URL` in `.env` for your own API).
 
 ```bash
 npm test          # unit + integration

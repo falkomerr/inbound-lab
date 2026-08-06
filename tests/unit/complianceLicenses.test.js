@@ -69,9 +69,9 @@ describe('License compliance (P0 artifacts)', () => {
   });
 
   it('README contains independence / trademark disclaimer', () => {
-    const readme = read('README.md');
+    const readme = read('README.md').replace(/^>\s?/gm, '').replace(/\s+/g, ' ');
     assert.match(readme, /not affiliated with, endorsed by, or sponsored by Grafana Labs/i);
-    assert.match(readme, /not an\s+official Grafana or k6 product/i);
+    assert.match(readme, /not an official Grafana or k6 product/i);
     assert.match(readme, /powered by the k6 engine/i);
     assert.match(readme, /THIRD_PARTY_NOTICES\.md/);
   });

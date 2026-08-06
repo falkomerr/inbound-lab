@@ -32,8 +32,8 @@ if (!validEnvironments.includes(currentEnv)) {
  * Environment-specific base URLs (placeholders — override with BASE_URL in .env)
  */
 const baseUrls = {
-  staging: 'https://httpbin.org',
-  production: 'https://httpbin.org',
+  staging: 'https://httpbingo.org',
+  production: 'https://httpbingo.org',
 };
 
 /**

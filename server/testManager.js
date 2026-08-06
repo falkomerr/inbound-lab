@@ -64,10 +64,10 @@ const TEST_SCENARIOS = {
   'sample-http-get': {
     name: 'Sample: HTTP GET',
     file: 'sample-http-get.js',
-    description: 'Demo GET against httpbin.org (or BASE_URL) — replace with your own scenarios',
+    description: 'Demo GET against httpbingo.org (or BASE_URL) — replace with your own APIs',
     team: 'api',
     defaultVUs: 5,
-    defaultDuration: '1m',
+    defaultDuration: '30s',
     steps: [{ method: 'GET', url: '/get', label: 'Sample GET' }],
   },
 };

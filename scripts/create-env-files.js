@@ -107,7 +107,7 @@ function getDefaultConfig(envName) {
   const defaults = {
     staging: {
       ENV: 'staging',
-      BASE_URL: 'https://httpbin.org',
+      BASE_URL: 'https://httpbingo.org',
       API_TIMEOUT: '30000',
       VUS: '10',
       DURATION: '5m',
@@ -116,7 +116,7 @@ function getDefaultConfig(envName) {
     },
     production: {
       ENV: 'production',
-      BASE_URL: 'https://httpbin.org',
+      BASE_URL: 'https://httpbingo.org',
       API_TIMEOUT: '60000',
       VUS: '20',
       DURATION: '10m',

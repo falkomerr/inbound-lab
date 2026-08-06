@@ -26,8 +26,25 @@
 
 ---
 
+## Screenshots
+
+<p align="center">
+  <img src="docs/images/login.jpg" alt="FasterTest login page" width="900" />
+  <br />
+  <em>Login — secure access to the FasterTest dashboard</em>
+</p>
+
+<p align="center">
+  <img src="docs/images/dashboard-live.jpg" alt="FasterTest live dashboard during a k6 run" width="900" />
+  <br />
+  <em>Live run — VUs, duration, throughput, latency charts, Pause / Stop / Apply load updates</em>
+</p>
+
+---
+
 ## Table of contents
 
+- [Screenshots](#screenshots)
 - [What is FasterTest?](#what-is-fastertest)
 - [Why FasterTest?](#why-fastertest)
 - [Who is it for?](#who-is-it-for)

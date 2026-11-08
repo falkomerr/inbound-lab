@@ -1,0 +1,20 @@
+services:
+  api:
+    environment:
+      APP_BASE_URL: http://localhost:8080
+      ALLOWED_ORIGINS: http://localhost:8080,http://127.0.0.1:8080
+  orchestrator:
+    environment:
+      VPN_PROBE_URL: ${VPN_PROBE_URL:-http://fixture-http:8080/ip}
+  fixture-http:
+    image: python:3.12.11-alpine
+    command: ['python', '/fixture/server.py']
+    volumes: ['./platform/tests/docker/server.py:/fixture/server.py:ro']
+    networks: [egress]
+    mem_limit: 64m
+  fixture-xray:
+    image: ghcr.io/xtls/xray-core:26.10.21
+    command: ['run', '-config', '/fixture/server.json']
+    volumes: ['./platform/tests/docker/server.json:/fixture/server.json:ro']
+    networks: [egress]
+    mem_limit: 64m

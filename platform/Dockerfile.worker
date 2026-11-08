@@ -1,0 +1,6 @@
+FROM grafana/k6:1.8.0
+USER root
+RUN apk add --no-cache curl ca-certificates && mkdir -p /work && chown 12345:12345 /work
+USER 12345:12345
+WORKDIR /work
+ENTRYPOINT ["k6"]

@@ -1,0 +1,190 @@
+{
+  "uid": "inbound-lab",
+  "title": "Inbound Lab",
+  "schemaVersion": 39,
+  "version": 1,
+  "time": {
+    "from": "now-30m",
+    "to": "now"
+  },
+  "refresh": "5s",
+  "templating": {
+    "list": [
+      {
+        "name": "run_id",
+        "type": "query",
+        "datasource": {
+          "type": "prometheus",
+          "uid": "prometheus"
+        },
+        "query": "label_values(k6_http_reqs_total, run_id)",
+        "refresh": 1
+      }
+    ]
+  },
+  "panels": [
+    {
+      "id": 1,
+      "title": "HTTP RPS по подключениям",
+      "type": "timeseries",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "prometheus"
+      },
+      "gridPos": {
+        "x": 0,
+        "y": 0,
+        "w": 12,
+        "h": 8
+      },
+      "targets": [
+        {
+          "expr": "sum by(inbound_id) (rate(k6_http_reqs_total{run_id=\"$run_id\"}[30s]))",
+          "legendFormat": "{{inbound_id}}"
+        }
+      ]
+    },
+    {
+      "id": 2,
+      "title": "Общий p95, мс",
+      "type": "timeseries",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "prometheus"
+      },
+      "gridPos": {
+        "x": 12,
+        "y": 0,
+        "w": 12,
+        "h": 8
+      },
+      "targets": [
+        {
+          "expr": "1000 * histogram_quantile(0.95, sum(rate(k6_http_req_duration_seconds{run_id=\"$run_id\"}[30s])))"
+        }
+      ]
+    },
+    {
+      "id": 3,
+      "title": "Доля ошибок по подключениям",
+      "type": "timeseries",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "prometheus"
+      },
+      "gridPos": {
+        "x": 0,
+        "y": 8,
+        "w": 12,
+        "h": 8
+      },
+      "targets": [
+        {
+          "expr": "k6_http_req_failed_rate{run_id=\"$run_id\"}",
+          "legendFormat": "{{inbound_id}}"
+        }
+      ]
+    },
+    {
+      "id": 4,
+      "title": "Пропущенные итерации",
+      "type": "timeseries",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "prometheus"
+      },
+      "gridPos": {
+        "x": 12,
+        "y": 8,
+        "w": 12,
+        "h": 8
+      },
+      "targets": [
+        {
+          "expr": "sum by(inbound_id) (rate(k6_dropped_iterations_total{run_id=\"$run_id\"}[30s]))",
+          "legendFormat": "{{inbound_id}}"
+        }
+      ]
+    },
+    {
+      "id": 5,
+      "title": "CPU Pi, %",
+      "type": "timeseries",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "prometheus"
+      },
+      "gridPos": {
+        "x": 0,
+        "y": 16,
+        "w": 12,
+        "h": 8
+      },
+      "targets": [
+        {
+          "expr": "100 * (1 - avg(rate(node_cpu_seconds_total{mode=\"idle\"}[1m])))"
+        }
+      ]
+    },
+    {
+      "id": 6,
+      "title": "Доступная RAM, байты",
+      "type": "timeseries",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "prometheus"
+      },
+      "gridPos": {
+        "x": 12,
+        "y": 16,
+        "w": 12,
+        "h": 8
+      },
+      "targets": [
+        {
+          "expr": "node_memory_MemAvailable_bytes"
+        }
+      ]
+    },
+    {
+      "id": 7,
+      "title": "Температура, °C",
+      "type": "timeseries",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "prometheus"
+      },
+      "gridPos": {
+        "x": 0,
+        "y": 24,
+        "w": 12,
+        "h": 8
+      },
+      "targets": [
+        {
+          "expr": "node_thermal_zone_temp"
+        }
+      ]
+    },
+    {
+      "id": 8,
+      "title": "Свободное место, байты",
+      "type": "timeseries",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "prometheus"
+      },
+      "gridPos": {
+        "x": 12,
+        "y": 24,
+        "w": 12,
+        "h": 8
+      },
+      "targets": [
+        {
+          "expr": "node_filesystem_avail_bytes{mountpoint=\"/\"}"
+        }
+      ]
+    }
+  ]
+}

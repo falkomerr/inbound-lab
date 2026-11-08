@@ -1,0 +1,181 @@
+name: inbound-lab
+
+x-app: &app
+  image: inbound-lab-app:local
+  build:
+    context: ./platform
+    dockerfile: Dockerfile.lab
+  restart: unless-stopped
+  init: true
+  user: '0:0'
+  environment: &app-env
+    MYSQL_HOST: mysql
+    MYSQL_DATABASE: inbound_lab
+    MYSQL_USER: lab
+    STORAGE_BACKEND: mysql
+    REDIS_URL: redis://redis:6379
+    VPN_ENABLED: '1'
+    VPN_KEY_FILE: /run/secrets/vpn_key
+    SUBSCRIPTION_HWID_FILE: /run/secrets/subscription_device_id
+    SUBSCRIPTION_USER_AGENT: ${SUBSCRIPTION_USER_AGENT:-Happ/3.13.0 InboundLab/1.0}
+    PROMETHEUS_URL: http://prometheus:9090
+    UI_PORT: '3001'
+    APP_BASE_URL: ${APP_BASE_URL:-http://localhost:8080}
+    ALLOWED_ORIGINS: ${APP_BASE_URL:-http://localhost:8080},http://127.0.0.1:${LAB_PORT:-8080},http://localhost:${LAB_PORT:-8080}
+    LOG_HTTP: '0'
+  secrets: [mysql_password, jwt_secret, vpn_key, admin_password, subscription_device_id]
+  networks: [control]
+  depends_on:
+    mysql:
+      condition: service_healthy
+    redis:
+      condition: service_healthy
+    prometheus:
+      condition: service_started
+  cap_drop: [ALL]
+  cap_add: [SETUID, SETGID]
+  security_opt: [no-new-privileges:true]
+  read_only: true
+  tmpfs: ['/tmp:size=64m,mode=1777']
+  volumes:
+    - app_data:/app/data
+    - app_logs:/app/logs
+    - app_reports:/app/reports
+  mem_limit: 512m
+
+services:
+  mysql:
+    image: mysql:8.4.8
+    restart: unless-stopped
+    environment:
+      MYSQL_DATABASE: inbound_lab
+      MYSQL_USER: lab
+      MYSQL_PASSWORD_FILE: /run/secrets/mysql_password
+      MYSQL_ROOT_PASSWORD_FILE: /run/secrets/mysql_root_password
+    secrets: [mysql_password, mysql_root_password]
+    volumes: [mysql_data:/var/lib/mysql]
+    networks: [control]
+    healthcheck:
+      test: ['CMD', 'mysqladmin', 'ping', '-h', '127.0.0.1']
+      interval: 5s
+      timeout: 3s
+      retries: 30
+    mem_limit: 1g
+
+  redis:
+    image: redis:8.2.3-alpine
+    restart: unless-stopped
+    command: ['redis-server', '--appendonly', 'yes', '--maxmemory', '128mb', '--maxmemory-policy', 'noeviction']
+    volumes: [redis_data:/data]
+    networks: [control]
+    healthcheck:
+      test: ['CMD', 'redis-cli', 'ping']
+      interval: 5s
+      timeout: 3s
+      retries: 20
+    mem_limit: 256m
+
+  prometheus:
+    image: prom/prometheus:v3.7.3
+    container_name: inbound-lab-prometheus
+    restart: unless-stopped
+    command: ['--config.file=/etc/prometheus/prometheus.yml', '--web.enable-remote-write-receiver', '--enable-feature=native-histograms', '--storage.tsdb.retention.time=7d', '--storage.tsdb.retention.size=2GB']
+    volumes:
+      - ./deploy/prometheus.yml:/etc/prometheus/prometheus.yml:ro
+      - prometheus_data:/prometheus
+    networks: [control]
+    mem_limit: 512m
+
+  grafana:
+    image: grafana/grafana:12.2.1
+    restart: unless-stopped
+    environment:
+      GF_SECURITY_ADMIN_USER: admin
+      GF_SECURITY_ADMIN_PASSWORD__FILE: /run/secrets/admin_password
+      GF_USERS_ALLOW_SIGN_UP: 'false'
+      GF_ANALYTICS_REPORTING_ENABLED: 'false'
+      GF_ANALYTICS_CHECK_FOR_UPDATES: 'false'
+      GF_PLUGINS_PREINSTALL_DISABLED: 'true'
+    secrets: [admin_password]
+    ports: ['${LAB_BIND_IP:-127.0.0.1}:${GRAFANA_PORT:-3000}:3000']
+    volumes:
+      - grafana_data:/var/lib/grafana
+      - ./deploy/grafana:/etc/grafana/provisioning:ro
+    networks: [control, egress]
+    mem_limit: 256m
+
+  api:
+    <<: *app
+    ports: ['${LAB_BIND_IP:-127.0.0.1}:${LAB_PORT:-8080}:3001']
+    networks: [control, egress]
+
+  orchestrator:
+    <<: *app
+    user: '0:0'
+    command: ['orchestrator']
+    stop_grace_period: 45s
+    cap_add: []
+    environment:
+      <<: *app-env
+      VPN_WORKER_IMAGE: inbound-lab-worker:local
+      XRAY_IMAGE: ${XRAY_IMAGE:-ghcr.io/xtls/xray-core:26.10.21}
+      VPN_DIAGNOSTICS: ${VPN_DIAGNOSTICS:-0}
+      VPN_EGRESS_NETWORK: inbound-lab-egress
+      PROMETHEUS_CONTAINER: inbound-lab-prometheus
+      VPN_PROBE_URL: ${VPN_PROBE_URL:-https://api.ipify.org?format=json}
+      VPN_WORKER_NETWORK_PREFIX: ${VPN_WORKER_NETWORK_PREFIX:-10.240}
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock
+    networks: [control]
+
+  node-exporter:
+    image: prom/node-exporter:v1.10.2
+    restart: unless-stopped
+    command: ['--path.rootfs=/host', '--collector.filesystem.mount-points-exclude=^/(dev|proc|sys|var/lib/docker/.+)($$|/)']
+    pid: host
+    volumes: ['/:/host:ro,rslave']
+    networks: [control]
+    mem_limit: 64m
+
+  worker-image:
+    image: inbound-lab-worker:local
+    build:
+      context: ./platform
+      dockerfile: Dockerfile.worker
+    profiles: [build]
+    entrypoint: ['k6']
+    command: ['version']
+
+  xray-image:
+    image: ghcr.io/xtls/xray-core:26.10.21
+    profiles: [build]
+    command: ['version']
+
+networks:
+  control:
+    internal: true
+  egress:
+    name: inbound-lab-egress
+
+volumes:
+  mysql_data:
+  redis_data:
+  prometheus_data:
+  grafana_data:
+  app_data:
+  app_logs:
+  app_reports:
+
+secrets:
+  subscription_device_id:
+    file: ./secrets/subscription_device_id
+  mysql_password:
+    file: ./secrets/mysql_password
+  mysql_root_password:
+    file: ./secrets/mysql_root_password
+  jwt_secret:
+    file: ./secrets/jwt_secret
+  vpn_key:
+    file: ./secrets/vpn_key
+  admin_password:
+    file: ./secrets/admin_password

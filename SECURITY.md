@@ -1,34 +1,26 @@
-# Security Policy
+# Безопасность
 
-## Supported versions
+Проект предназначен для одного администратора в доверенной LAN/VPN. Доступ к Docker socket фактически даёт права управления хостом. Не предоставляйте панель недоверенным пользователям и не открывайте её напрямую в Интернет. Для удалённого доступа нужны сетевые ограничения и TLS.
 
-| Version | Supported |
-| ------- | --------- |
-| 1.x     | Yes       |
+Сообщайте об уязвимостях через Private vulnerability reporting на вкладке Security этого репозитория, если владелец её включил. Не публикуйте эксплуатационные данные и секреты в Issues. Пока приватный канал не настроен, публичный issue может содержать только просьбу организовать закрытый контакт, без деталей. Обращения Inbound Lab не следует отправлять в upstream FasterTest.
 
-## Reporting a vulnerability
+## Данные и конфигурация
 
-**Do not open a public GitHub issue for security vulnerabilities.**
+- Генерируйте уникальные секреты скриптом `scripts/init-secrets.py`. Примеры не являются готовыми учётными данными.
+- Не включайте в Git `.env`, `secrets/`, дампы БД, подписки, истории запросов, cookie и заголовки авторизации.
+- Резервируйте БД и ключ шифрования отдельно, ограничивайте доступ к обоим. Не меняйте ключ без процедуры миграции данных.
+- Логи диагностики, внешние IP и сохранённые отчёты могут раскрывать инфраструктуру. Проверяйте их перед отправкой.
+- При загрузке подписки провайдер получает User-Agent и постоянный случайный идентификатор развёртывания (`subscription_device_id`). Это позволяет ему связывать обновления одной установки. Идентификатор не включается в публичную поставку.
+- Импорт подписок и целевые запросы требуют исходящего сетевого доступа. Это инструмент администратора, а не изолированная песочница для недоверенных пользователей.
+- Проверка доступности VPN привязана к версии и отпечатку, но не подтверждает доступность каждой целевой системы и каждого маршрута.
+- Даже при включённом прокси проверяйте запрет обхода сети на своём Docker/ядре, включая IPv6 и DNS. Отдельный технический сбой не означает, что тест прошёл пользовательские пороги.
 
-Please report privately so we can fix and disclose responsibly:
+Используйте только принадлежащие вам либо явно разрешённые цели. Назначайте ограниченные бюджеты и контролируйте обе стороны теста. Перед распространением образов проверьте лицензии всех включённых компонентов.
 
-1. Prefer
-   [GitHub Security Advisories](https://github.com/alirezaedalat/fastertest/security/advisories/new).
-2. Or email the maintainers listed in the repository profile / `package.json` `author` field.
+## Публикация
 
-Include:
+Используйте чистый экспорт `scripts/publication.py`. `.gitignore` не удаляет данные из существующей истории Git. Архив экспорта создаётся без Git-истории и исходных файловых метаданных, но публикация коммитов может раскрыть Git-имя/email, аккаунт GitHub и активность. Сканер является дополнительной проверкой, а не гарантией анонимности или отсутствия любых секретов.
 
-- Affected version or commit
-- Steps to reproduce
-- Impact (auth bypass, data exposure, RCE, etc.)
-- Any suggested fix
+## Зависимости
 
-We aim to acknowledge reports within **7 days** and ship a fix or mitigation as soon as practical.
-
-## Security notes for operators
-
-- Never commit `.env`, database dumps, or `data/*.json` (passwords/tokens).
-- Generate a unique `JWT_SECRET` per deployment.
-- Prefer MySQL for shared / production installs.
-- Restrict network access to the UI port; put TLS termination in front (nginx/caddy).
-- Point `BASE_URL` only at systems you are authorized to load-test.
+`bun.lock` фиксирует проверенный набор пакетов. Override `uuid` версии 11.1.1 устраняет известную advisory в транзитивной версии Dockerode 4 без перехода SDK на новую основную версию. При его изменении проверяйте загрузку Docker SDK, полный набор тестов и `bun audit`. Чистый аудит пакетов не подтверждает безопасность контейнерных образов, ядра и пользовательских сценариев.

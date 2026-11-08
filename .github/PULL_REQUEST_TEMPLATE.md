@@ -1,15 +1,7 @@
-## Summary
+## Изменение
 
-<!-- What does this PR change and why? -->
+Опишите поведение и причину изменения.
 
--
+## Проверка
 
-## Test plan
-
-- [ ] `npm run lint`
-- [ ] `npm test`
-- [ ] Manual check (if UI/API changed): login, start sample test, admin users
-
-## Notes
-
-<!-- Breaking changes, follow-ups, screenshots -->
+Укажите выполненные тесты и ограничения. Не включайте реальные подписки, ключи, IP подключений и персональные отчёты.
